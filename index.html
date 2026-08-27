@@ -5,8 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Food Service | Controle de Estoque</title>
   <link rel="stylesheet" href="style.css">
-  <script src="data.js" defer></script>
-  <script src="script.js" defer></script>
+  <script>
+    // Cache-busting: obriga o navegador a sempre baixar a versão mais
+    // recente de data.js e script.js, em vez de usar uma cópia antiga
+    // guardada em cache (era a causa do site "não atualizar").
+    (function () {
+      var v = Date.now();
+      document.write('<script src="data.js?v=' + v + '"><\/script>');
+      document.write('<script src="script.js?v=' + v + '"><\/script>');
+    })();
+  </script>
 </head>
 <body>
 
