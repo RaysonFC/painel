@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food Service | Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Importação assíncrona garantindo que a árvore do DOM esteja totalmente carregada -->
+  <script src="data.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">FS</span>
+    <h1>FOOD SERVICE <span class="accent">| ESTOQUE</span></h1>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi kpi-meta">
+      <span class="kpi-icon">💰</span>
+      <div class="kpi-text">
+        <span class="kpi-label">META MENSAL</span>
+        <span class="kpi-value" id="kpi-meta-mensal">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-venda">
+      <span class="kpi-icon">📊</span>
+      <div class="kpi-text">
+        <span class="kpi-label">VENDA ATUAL</span>
+        <span class="kpi-value" id="kpi-venda-atual">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-falta">
+      <span class="kpi-icon">📈</span>
+      <div class="kpi-text">
+        <span class="kpi-label">FALTA P/ META</span>
+        <span class="kpi-value" id="kpi-falta-meta">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-estoque">
+      <span class="kpi-icon">📦</span>
+      <div class="kpi-text">
+        <span class="kpi-label">ESTOQUE UN</span>
+        <span class="kpi-value" id="kpi-estoque-un">–</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- Painel Donut (SVG) -->
+  <section class="panel panel-donut">
+    <h2>VENDAS ATUAL UN</h2>
+    <div class="donut-wrap">
+      <svg id="donut" viewBox="0 0 200 200"></svg>
+      <div class="donut-center">
+        <span id="donut-total">0</span>
+        <small>Faturamento Total</small>
+      </div>
+    </div>
+    <ul class="legend" id="donut-legend"></ul>
+  </section>
+
+  <!-- Painel Barras Departamento -->
+  <section class="panel panel-bars">
+    <h2>ESTOQUE (UN) POR DEPARTAMENTO</h2>
+    <div class="bars" id="dept-bars"></div>
+  </section>
+
+  <!-- Painel Gauge (SVG) + Tabela Resumo -->
+  <section class="panel panel-gauge">
+    <h2>SAÚDE DO ESTOQUE</h2>
+    <div class="gauge-wrap">
+      <svg id="gauge" viewBox="0 0 200 110"></svg>
+      <div class="gauge-value">
+        <span id="gauge-pct">0%</span>
+        <small>Saudável (OK + Over)</small>
+      </div>
+    </div>
+    <table class="status-table" id="status-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Produtos</th>
+          <th>Estoque UN</th>
+          <th>Faturamento</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- Painel Tabela Principal de Produtos -->
+  <section class="panel panel-table">
+    <div class="table-toolbar">
+      <h2>PRODUTOS</h2>
+      <div class="toolbar-controls">
+        <input type="search" id="search-box" placeholder="Buscar produto, marca ou depto...">
+        <div class="status-filters" id="status-filters">
+          <button class="chip chip-all active" data-status="Todos">Todos</button>
+          <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura</button>
+          <button class="chip chip-critico" data-status="Critico">🔴 Crítico</button>
+          <button class="chip chip-ok" data-status="OK">🟢 OK</button>
+          <button class="chip chip-over" data-status="Over">🔵 Over</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th data-key="descricao">Descrição</th>
+            <th data-key="departamento">Departamento</th>
+            <th data-key="marca">Marca</th>
+            <th data-key="estoque_un" class="num">Estoque UN</th>
+            <th data-key="dias_estoque_un" class="num">Dias Estoque</th>
+            <th data-key="faturamento" class="num">Faturamento</th>
+            <th data-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+</main>
+
+</body>
+</html>
