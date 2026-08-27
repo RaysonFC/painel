@@ -30,12 +30,14 @@ const SITUACAO_CLASS = {
 
 const data = DASHBOARD_DATA;
 const META_MENSAL = (data.kpis && data.kpis.meta_mensal) || 644633;
+const PAGE_SIZE = 20;
 
 let state = {
   status: "Todos",
   search: "",
   sortKey: "faturamento",
   sortDir: "desc",
+  page: 1,
   selectedMarcas: new Set(),
   selectedDept: null,
 };
@@ -57,12 +59,10 @@ const fmtNum = (v, d) =>
 const fmtPct = (v) =>
   (Number(v || 0) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
-/** Escala logarítmica dinâmica: 0 → 0%, max → 100% */
 function logScale(value, maxVal) {
   const v = Math.max(0, Number(value) || 0);
   const m = Math.max(1e-9, Number(maxVal) || 1);
   if (v <= 0) return 0;
-  // log10(1+v) / log10(1+max)  → barras dinâmicas, valores pequenos ainda visíveis
   return (Math.log10(1 + v) / Math.log10(1 + m)) * 100;
 }
 
@@ -99,7 +99,6 @@ function computeKpis(products) {
   };
 }
 
-/** Retorna % e quantidade absoluta de UN por status de vendas */
 function computeVendasStatusSummary(products) {
   const totals = { Crescimento: 0, Queda: 0, Estavel: 0, "Sem Dados": 0 };
   products.forEach((p) => {
@@ -122,7 +121,10 @@ function computeDeptBars(products) {
     map[d].faturamento += Number(p.faturamento) || 0;
     map[d].vendas_un += Number(p.vendas_un) || 0;
   });
-  return Object.values(map).sort((a, b) => b.faturamento - a.faturamento);
+  // trava: só aparece se faturamento > 0 E vendas_un > 0
+  return Object.values(map)
+    .filter((d) => d.faturamento > 0 && d.vendas_un > 0)
+    .sort((a, b) => b.faturamento - a.faturamento);
 }
 
 function computeDeptHealth(productsForHealth) {
@@ -197,8 +199,6 @@ function renderDonut(vendasSummary, vendaAtual) {
     const angleEnd = angleStart + frac * 360;
     const mid = (angleStart + angleEnd) / 2;
     paths.push(donutSlice(cx, cy, rOuter, rInner, angleStart, angleEnd, VENDAS_COLORS[s.status_vendas]));
-
-    // percentual próximo da fatia
     if (s.pct >= 1) {
       const pos = polarToCartesian(cx, cy, rLabel, mid + 90);
       labels.push(
@@ -212,38 +212,31 @@ function renderDonut(vendasSummary, vendaAtual) {
 
   if (svg) svg.innerHTML = paths.join("") + labels.join("");
 
-  // Legenda: status + quantidade em UN
   if (legend) {
     legend.innerHTML = ordered
       .map(
         (s) =>
-          '<li><span class="dot" style="background:' +
-          VENDAS_COLORS[s.status_vendas] +
-          '"></span><span class="lg-label">' +
-          VENDAS_LABELS[s.status_vendas] +
-          '</span><span class="lg-value">' +
-          Number(s.pct).toFixed(1) +
-          "% · " +
-          fmtInt(Math.round(s.vendas_un)) +
-          " un</span></li>"
+          '<li><span class="dot" style="background:' + VENDAS_COLORS[s.status_vendas] +
+          '"></span><span class="lg-label">' + VENDAS_LABELS[s.status_vendas] +
+          '</span><span class="lg-value">' + Number(s.pct).toFixed(1) + "% · " +
+          fmtInt(Math.round(s.vendas_un)) + " un</span></li>"
       )
       .join("");
   }
 }
 
-/**
- * Barras por departamento — escala LOGARÍTMICA dinâmica.
- * Valores SEMPRE no lado externo (ponta direita da barra), cor azul escuro.
- */
 function renderDeptBars(deptBars) {
   const el = document.getElementById("dept-bars");
   if (!el) return;
+  if (!deptBars.length) {
+    el.innerHTML = '<p class="empty-bars">Nenhum departamento com faturamento e vendas &gt; 0</p>';
+    return;
+  }
 
-  const items = deptBars;
-  const maxFat = Math.max(...items.map((d) => d.faturamento), 1);
-  const maxVend = Math.max(...items.map((d) => d.vendas_un), 1);
+  const maxFat = Math.max(...deptBars.map((d) => d.faturamento), 1);
+  const maxVend = Math.max(...deptBars.map((d) => d.vendas_un), 1);
 
-  el.innerHTML = items
+  el.innerHTML = deptBars
     .map((d) => {
       const pctFat = logScale(d.faturamento, maxFat);
       const pctVend = logScale(d.vendas_un, maxVend);
@@ -252,15 +245,11 @@ function renderDeptBars(deptBars) {
         '<span class="cluster-label" title="' + d.departamento + '">' + d.departamento + "</span>" +
         '<div class="cluster-tracks">' +
           '<div class="cluster-track-outer">' +
-            '<div class="cluster-track">' +
-              '<div class="cluster-fill fat" style="width:' + pctFat + '%"></div>' +
-            "</div>" +
+            '<div class="cluster-track"><div class="cluster-fill fat" style="width:' + pctFat + '%"></div></div>' +
             '<span class="cluster-val-ext">' + fmtMoney(d.faturamento) + "</span>" +
           "</div>" +
           '<div class="cluster-track-outer">' +
-            '<div class="cluster-track">' +
-              '<div class="cluster-fill vend" style="width:' + pctVend + '%"></div>' +
-            "</div>" +
+            '<div class="cluster-track"><div class="cluster-fill vend" style="width:' + pctVend + '%"></div></div>' +
             '<span class="cluster-val-ext">' + fmtInt(d.vendas_un) + " un</span>" +
           "</div>" +
         "</div></div>"
@@ -296,6 +285,7 @@ function renderDeptHealth(deptHealth) {
     tr.addEventListener("click", () => {
       const dept = tr.getAttribute("data-dept");
       state.selectedDept = state.selectedDept === dept ? null : dept;
+      state.page = 1;
       updateDeptFilterUI();
       refreshAll();
     });
@@ -320,6 +310,7 @@ function getFilteredProducts(baseProducts) {
     const q = state.search.toLowerCase();
     rows = rows.filter(
       (p) =>
+        String(p.cod || "").toLowerCase().includes(q) ||
         (p.descricao || "").toLowerCase().includes(q) ||
         (p.marca || "").toLowerCase().includes(q) ||
         (p.departamento || "").toLowerCase().includes(q)
@@ -329,7 +320,7 @@ function getFilteredProducts(baseProducts) {
   const dir = state.sortDir === "asc" ? 1 : -1;
   rows = [...rows].sort((a, b) => {
     const va = a[key] ?? "", vb = b[key] ?? "";
-    if (typeof va === "string") return va.localeCompare(vb) * dir;
+    if (typeof va === "string") return String(va).localeCompare(String(vb)) * dir;
     return (va - vb) * dir;
   });
   return rows;
@@ -339,11 +330,16 @@ function renderTable(baseProducts) {
   const tbody = document.getElementById("product-tbody");
   if (!tbody) return;
   const rows = getFilteredProducts(baseProducts);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  state.page = Math.min(Math.max(1, state.page), totalPages);
+  const startIdx = (state.page - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(startIdx, startIdx + PAGE_SIZE);
 
-  tbody.innerHTML = rows
+  tbody.innerHTML = pageRows
     .map(
       (p) =>
-        "<tr><td>" + (p.descricao || "") +
+        "<tr><td>" + (p.cod || "") +
+        "</td><td>" + (p.descricao || "") +
         "</td><td>" + (p.departamento || "") +
         "</td><td>" + (p.marca || "") +
         '</td><td class="num">' + fmtInt(p.estoque_un) +
@@ -355,8 +351,25 @@ function renderTable(baseProducts) {
     )
     .join("");
 
-  const footer = document.getElementById("table-footer");
-  if (footer) footer.textContent = fmtInt(rows.length) + " produtos";
+  renderPagination(rows.length, totalPages);
+}
+
+function renderPagination(totalRows, totalPages) {
+  const el = document.getElementById("pagination");
+  if (!el) return;
+  el.innerHTML =
+    '<button id="prev-page" ' + (state.page <= 1 ? "disabled" : "") + ">‹ Anterior</button>" +
+    "<span>Página " + state.page + " de " + totalPages + " (" + fmtInt(totalRows) + " produtos)</span>" +
+    '<button id="next-page" ' + (state.page >= totalPages ? "disabled" : "") + ">Próxima ›</button>";
+
+  document.getElementById("prev-page")?.addEventListener("click", () => {
+    state.page--;
+    refreshAll();
+  });
+  document.getElementById("next-page")?.addEventListener("click", () => {
+    state.page++;
+    refreshAll();
+  });
 }
 
 function updateMarcaToggleText() {
@@ -402,6 +415,7 @@ function renderMarcaList(filterText) {
       if (cb.checked) state.selectedMarcas.add(marca);
       else state.selectedMarcas.delete(marca);
       updateMarcaToggleText();
+      state.page = 1;
       refreshAll();
     });
   });
@@ -442,6 +456,7 @@ function setupMarcaDropdown() {
       ALL_MARCAS.forEach((m) => state.selectedMarcas.add(m));
       updateMarcaToggleText();
       renderMarcaList(search ? search.value : "");
+      state.page = 1;
       refreshAll();
     });
   }
@@ -451,6 +466,7 @@ function setupMarcaDropdown() {
       state.selectedMarcas.clear();
       updateMarcaToggleText();
       renderMarcaList(search ? search.value : "");
+      state.page = 1;
       refreshAll();
     });
   }
@@ -459,6 +475,7 @@ function setupMarcaDropdown() {
   if (clearDept) {
     clearDept.addEventListener("click", () => {
       state.selectedDept = null;
+      state.page = 1;
       updateDeptFilterUI();
       refreshAll();
     });
@@ -474,6 +491,7 @@ function setupTableControls() {
   if (searchBox) {
     searchBox.addEventListener("input", (e) => {
       state.search = e.target.value;
+      state.page = 1;
       refreshAll();
     });
   }
@@ -483,6 +501,7 @@ function setupTableControls() {
       document.querySelectorAll(".status-filters .chip").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.status = btn.dataset.status;
+      state.page = 1;
       refreshAll();
     });
   });
@@ -496,6 +515,7 @@ function setupTableControls() {
         state.sortKey = key;
         state.sortDir = "desc";
       }
+      state.page = 1;
       refreshAll();
     });
   });

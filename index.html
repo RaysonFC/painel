@@ -129,10 +129,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Regras de status -->
+    <div class="status-rules">
+      <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0</span>
+      <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
+      <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
+      <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
+    </div>
+
     <div class="table-scroll product-scroll">
       <table class="product-table">
         <thead>
           <tr>
+            <th data-key="cod">COD</th>
             <th data-key="descricao">Descrição</th>
             <th data-key="departamento">Departamento</th>
             <th data-key="marca">Marca</th>
@@ -146,7 +156,8 @@
         <tbody id="product-tbody"></tbody>
       </table>
     </div>
-    <div class="table-footer" id="table-footer"></div>
+
+    <div class="pagination" id="pagination"></div>
   </section>
 
 </main>
