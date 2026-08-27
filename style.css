@@ -217,7 +217,7 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1.4fr 1.3fr;
+  grid-template-columns: 1fr 1.5fr 1.3fr;
   grid-template-rows: auto auto;
   gap: 16px;
   padding: 20px;
@@ -251,7 +251,8 @@ body {
 
 .panel-table { grid-column: 1 / -1; }
 
-.donut-wrap { position: relative; width: 200px; margin: 0 auto; }
+/* Donut */
+.donut-wrap { position: relative; width: 240px; margin: 0 auto; }
 #donut { width: 100%; height: auto; }
 .donut-center {
   position: absolute;
@@ -259,17 +260,24 @@ body {
   transform: translate(-50%, -50%);
   text-align: center;
   line-height: 1.1;
+  pointer-events: none;
 }
-.donut-center span { display: block; font-size: 26px; font-weight: 800; color: var(--navy); }
+.donut-center span { display: block; font-size: 22px; font-weight: 800; color: var(--navy); }
 .donut-center small { color: var(--text-muted); font-size: 11px; }
 
-.legend { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 6px; }
-.legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.legend .lg-label { flex: 1; }
-.legend .lg-value { font-weight: 700; color: var(--navy); }
+.donut-pct-label {
+  font-size: 11px;
+  font-weight: 800;
+  fill: var(--navy);
+}
 
-/* Clustered bars by departamento */
+.legend { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.legend .lg-label { flex: 1; }
+.legend .lg-value { font-weight: 700; color: var(--navy); white-space: nowrap; font-size: 12px; }
+
+/* Clustered bars — log scale, valores SEMPRE externos */
 .cluster-legend {
   display: flex;
   gap: 16px;
@@ -292,15 +300,15 @@ body {
 .cluster-bars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 420px;
+  gap: 12px;
+  max-height: 440px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .cluster-row {
   display: grid;
-  grid-template-columns: 130px 1fr;
+  grid-template-columns: 120px 1fr;
   gap: 8px;
   align-items: center;
   font-size: 12px;
@@ -318,14 +326,23 @@ body {
 .cluster-tracks {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+}
+
+/* barra + valor externo lado a lado */
+.cluster-track-outer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .cluster-track {
-  position: relative;
+  flex: 1;
+  min-width: 0;
   background: var(--grey-line);
   border-radius: 4px;
-  height: 16px;
+  height: 14px;
   overflow: hidden;
 }
 
@@ -333,29 +350,23 @@ body {
   height: 100%;
   border-radius: 4px 0 0 4px;
   min-width: 2px;
+  transition: width 0.35s ease;
 }
 .cluster-fill.fat { background: var(--navy-light); }
 .cluster-fill.vend { background: var(--blue); }
 
-.cluster-val {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
+/* valor SEMPRE externo, ponta da barra, azul escuro */
+.cluster-val-ext {
+  flex-shrink: 0;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--navy-deep);
   white-space: nowrap;
-  pointer-events: none;
-  z-index: 1;
-}
-/* quando a barra cobre o valor → texto branco */
-.cluster-val.on-bar {
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  min-width: 90px;
+  text-align: left;
 }
 
-/* Dept health table */
+/* Dept health */
 .dept-scroll {
   max-height: 420px;
   overflow: auto;
@@ -447,9 +458,8 @@ body {
 
 .table-scroll { overflow-x: auto; }
 
-/* ~50 linhas visíveis + scroll vertical */
 .product-scroll {
-  max-height: 1850px; /* ~50 linhas x ~37px */
+  max-height: 1850px;
   overflow-y: auto;
   overflow-x: auto;
   border: 1px solid var(--grey-line);
@@ -502,4 +512,5 @@ body {
   .filter-bar { padding: 10px 16px; }
   .ms-dropdown { min-width: 100%; max-width: 100%; }
   .product-scroll { max-height: 600px; }
+  .cluster-val-ext { min-width: 70px; font-size: 10px; }
 }

@@ -37,7 +37,7 @@ let state = {
   sortKey: "faturamento",
   sortDir: "desc",
   selectedMarcas: new Set(),
-  selectedDept: null, // cross-filter por departamento (clique na tabela de saúde)
+  selectedDept: null,
 };
 
 const ALL_MARCAS = (() => {
@@ -57,7 +57,15 @@ const fmtNum = (v, d) =>
 const fmtPct = (v) =>
   (Number(v || 0) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
-/** Base filtrada por marca + departamento (cross-filter) */
+/** Escala logarítmica dinâmica: 0 → 0%, max → 100% */
+function logScale(value, maxVal) {
+  const v = Math.max(0, Number(value) || 0);
+  const m = Math.max(1e-9, Number(maxVal) || 1);
+  if (v <= 0) return 0;
+  // log10(1+v) / log10(1+max)  → barras dinâmicas, valores pequenos ainda visíveis
+  return (Math.log10(1 + v) / Math.log10(1 + m)) * 100;
+}
+
 function getBaseProducts() {
   let rows = data.produtos || [];
   if (state.selectedMarcas.size > 0) {
@@ -91,6 +99,7 @@ function computeKpis(products) {
   };
 }
 
+/** Retorna % e quantidade absoluta de UN por status de vendas */
 function computeVendasStatusSummary(products) {
   const totals = { Crescimento: 0, Queda: 0, Estavel: 0, "Sem Dados": 0 };
   products.forEach((p) => {
@@ -100,11 +109,11 @@ function computeVendasStatusSummary(products) {
   const total = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
   return VENDAS_ORDER.map((st) => ({
     status_vendas: st,
-    vendas_un: Math.round(((totals[st] || 0) / total) * 10000) / 100,
+    vendas_un: totals[st] || 0,
+    pct: Math.round(((totals[st] || 0) / total) * 10000) / 100,
   }));
 }
 
-/** Agrega por departamento para barras clusterizadas */
 function computeDeptBars(products) {
   const map = {};
   products.forEach((p) => {
@@ -116,19 +125,12 @@ function computeDeptBars(products) {
   return Object.values(map).sort((a, b) => b.faturamento - a.faturamento);
 }
 
-/** Saúde por departamento (sempre a partir dos produtos filtrados por marca, sem o filtro de dept para poder clicar em outros) */
 function computeDeptHealth(productsForHealth) {
   const map = {};
   productsForHealth.forEach((p) => {
     const d = p.departamento || "OUTROS";
     if (!map[d]) {
-      map[d] = {
-        departamento: d,
-        faturamento: 0,
-        vendas_un: 0,
-        media_mensal_un: 0,
-        giro_dia_un: 0,
-      };
+      map[d] = { departamento: d, faturamento: 0, vendas_un: 0, media_mensal_un: 0, giro_dia_un: 0 };
     }
     map[d].faturamento += Number(p.faturamento) || 0;
     map[d].vendas_un += Number(p.vendas_un) || 0;
@@ -138,11 +140,7 @@ function computeDeptHealth(productsForHealth) {
   return Object.values(map)
     .map((r) => {
       const pct = r.media_mensal_un ? r.vendas_un / r.media_mensal_un : 0;
-      return {
-        ...r,
-        pct_meta: pct,
-        situacao: classifySituacao(r.vendas_un, r.media_mensal_un),
-      };
+      return { ...r, pct_meta: pct, situacao: classifySituacao(r.vendas_un, r.media_mensal_un) };
     })
     .sort((a, b) => b.faturamento - a.faturamento);
 }
@@ -184,21 +182,37 @@ function renderDonut(vendasSummary, vendaAtual) {
   const ordered = VENDAS_ORDER.map((st) =>
     vendasSummary.find((s) => s.status_vendas === st)
   ).filter(Boolean);
-  const total = ordered.reduce((a, s) => a + s.vendas_un, 0);
+  const totalPct = ordered.reduce((a, s) => a + s.pct, 0);
+
   const totalElem = document.getElementById("donut-total");
   if (totalElem) totalElem.textContent = fmtInt(Math.round(vendaAtual));
 
-  const cx = 100, cy = 100, rOuter = 90, rInner = 55;
+  const cx = 120, cy = 120, rOuter = 85, rInner = 52, rLabel = 102;
   let angleStart = -90;
   const paths = [];
+  const labels = [];
+
   ordered.forEach((s) => {
-    const frac = total ? s.vendas_un / total : 0;
+    const frac = totalPct ? s.pct / totalPct : 0;
     const angleEnd = angleStart + frac * 360;
+    const mid = (angleStart + angleEnd) / 2;
     paths.push(donutSlice(cx, cy, rOuter, rInner, angleStart, angleEnd, VENDAS_COLORS[s.status_vendas]));
+
+    // percentual próximo da fatia
+    if (s.pct >= 1) {
+      const pos = polarToCartesian(cx, cy, rLabel, mid + 90);
+      labels.push(
+        '<text x="' + pos.x.toFixed(1) + '" y="' + pos.y.toFixed(1) +
+        '" text-anchor="middle" dominant-baseline="middle" class="donut-pct-label">' +
+        Number(s.pct).toFixed(1) + "%</text>"
+      );
+    }
     angleStart = angleEnd;
   });
-  if (svg) svg.innerHTML = paths.join("");
 
+  if (svg) svg.innerHTML = paths.join("") + labels.join("");
+
+  // Legenda: status + quantidade em UN
   if (legend) {
     legend.innerHTML = ordered
       .map(
@@ -208,17 +222,18 @@ function renderDonut(vendasSummary, vendaAtual) {
           '"></span><span class="lg-label">' +
           VENDAS_LABELS[s.status_vendas] +
           '</span><span class="lg-value">' +
-          Number(s.vendas_un).toFixed(2) +
-          "%</span></li>"
+          Number(s.pct).toFixed(1) +
+          "% · " +
+          fmtInt(Math.round(s.vendas_un)) +
+          " un</span></li>"
       )
       .join("");
   }
 }
 
 /**
- * Barras horizontais clusterizadas por DEPARTAMENTO.
- * Valor em branco quando a barra cobre bem o texto (pct >= 42%),
- * senão mantém a cor escura padrão.
+ * Barras por departamento — escala LOGARÍTMICA dinâmica.
+ * Valores SEMPRE no lado externo (ponta direita da barra), cor azul escuro.
  */
 function renderDeptBars(deptBars) {
   const el = document.getElementById("dept-bars");
@@ -230,44 +245,30 @@ function renderDeptBars(deptBars) {
 
   el.innerHTML = items
     .map((d) => {
-      const pctFat = (d.faturamento / maxFat) * 100;
-      const pctVend = (d.vendas_un / maxVend) * 100;
-      // se a barra cobre a maior parte da faixa, texto branco; senão cor padrão
-      const clsFat = pctFat >= 42 ? "cluster-val on-bar" : "cluster-val";
-      const clsVend = pctVend >= 42 ? "cluster-val on-bar" : "cluster-val";
+      const pctFat = logScale(d.faturamento, maxFat);
+      const pctVend = logScale(d.vendas_un, maxVend);
       return (
         '<div class="cluster-row">' +
-        '<span class="cluster-label" title="' +
-        d.departamento +
-        '">' +
-        d.departamento +
-        "</span>" +
+        '<span class="cluster-label" title="' + d.departamento + '">' + d.departamento + "</span>" +
         '<div class="cluster-tracks">' +
-        '<div class="cluster-track">' +
-        '<div class="cluster-fill fat" style="width:' +
-        pctFat +
-        '%"></div>' +
-        '<span class="' +
-        clsFat +
-        '">' +
-        fmtMoney(d.faturamento) +
-        "</span></div>" +
-        '<div class="cluster-track">' +
-        '<div class="cluster-fill vend" style="width:' +
-        pctVend +
-        '%"></div>' +
-        '<span class="' +
-        clsVend +
-        '">' +
-        fmtInt(d.vendas_un) +
-        " un</span></div>" +
+          '<div class="cluster-track-outer">' +
+            '<div class="cluster-track">' +
+              '<div class="cluster-fill fat" style="width:' + pctFat + '%"></div>' +
+            "</div>" +
+            '<span class="cluster-val-ext">' + fmtMoney(d.faturamento) + "</span>" +
+          "</div>" +
+          '<div class="cluster-track-outer">' +
+            '<div class="cluster-track">' +
+              '<div class="cluster-fill vend" style="width:' + pctVend + '%"></div>' +
+            "</div>" +
+            '<span class="cluster-val-ext">' + fmtInt(d.vendas_un) + " un</span>" +
+          "</div>" +
         "</div></div>"
       );
     })
     .join("");
 }
 
-/** Tabela saúde — clique filtra o site inteiro pelo departamento */
 function renderDeptHealth(deptHealth) {
   const tbody = document.querySelector("#dept-health-table tbody");
   if (!tbody) return;
@@ -278,28 +279,15 @@ function renderDeptHealth(deptHealth) {
       const cls = SITUACAO_CLASS[sit] || "sit-sem";
       const active = state.selectedDept === r.departamento ? " row-active" : "";
       return (
-        '<tr class="dept-row' +
-        active +
-        '" data-dept="' +
-        (r.departamento || "").replace(/"/g, "&quot;") +
-        '">' +
-        "<td>" +
-        (r.departamento || "") +
-        '</td><td class="num">' +
-        fmtMoney(r.faturamento) +
-        '</td><td class="num">' +
-        fmtNum(r.media_mensal_un, 0) +
-        '</td><td class="num">' +
-        fmtNum(r.vendas_un, 0) +
-        '</td><td class="num">' +
-        fmtNum(r.giro_dia_un, 1) +
-        '</td><td><span class="sit-badge ' +
-        cls +
-        '">' +
-        (SITUACAO_LABELS[sit] || sit) +
-        '</span></td><td class="num">' +
-        fmtPct(r.pct_meta) +
-        "</td></tr>"
+        '<tr class="dept-row' + active + '" data-dept="' +
+        (r.departamento || "").replace(/"/g, "&quot;") + '">' +
+        "<td>" + (r.departamento || "") +
+        '</td><td class="num">' + fmtMoney(r.faturamento) +
+        '</td><td class="num">' + fmtNum(r.media_mensal_un, 0) +
+        '</td><td class="num">' + fmtNum(r.vendas_un, 0) +
+        '</td><td class="num">' + fmtNum(r.giro_dia_un, 1) +
+        '</td><td><span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) +
+        '</span></td><td class="num">' + fmtPct(r.pct_meta) + "</td></tr>"
       );
     })
     .join("");
@@ -307,11 +295,7 @@ function renderDeptHealth(deptHealth) {
   tbody.querySelectorAll("tr.dept-row").forEach((tr) => {
     tr.addEventListener("click", () => {
       const dept = tr.getAttribute("data-dept");
-      if (state.selectedDept === dept) {
-        state.selectedDept = null; // toggle off
-      } else {
-        state.selectedDept = dept;
-      }
+      state.selectedDept = state.selectedDept === dept ? null : dept;
       updateDeptFilterUI();
       refreshAll();
     });
@@ -344,15 +328,13 @@ function getFilteredProducts(baseProducts) {
   const key = state.sortKey;
   const dir = state.sortDir === "asc" ? 1 : -1;
   rows = [...rows].sort((a, b) => {
-    const va = a[key] ?? "",
-      vb = b[key] ?? "";
+    const va = a[key] ?? "", vb = b[key] ?? "";
     if (typeof va === "string") return va.localeCompare(vb) * dir;
     return (va - vb) * dir;
   });
   return rows;
 }
 
-/** Tabela de produtos: todas as linhas filtradas, scroll (~50 linhas visíveis) */
 function renderTable(baseProducts) {
   const tbody = document.getElementById("product-tbody");
   if (!tbody) return;
@@ -361,32 +343,20 @@ function renderTable(baseProducts) {
   tbody.innerHTML = rows
     .map(
       (p) =>
-        "<tr><td>" +
-        (p.descricao || "") +
-        "</td><td>" +
-        (p.departamento || "") +
-        "</td><td>" +
-        (p.marca || "") +
-        '</td><td class="num">' +
-        fmtInt(p.estoque_un) +
-        '</td><td class="num">' +
-        Number(p.dias_estoque_un || 0).toFixed(1) +
-        '</td><td class="num">' +
-        fmtInt(p.vendas_un) +
-        '</td><td class="num">' +
-        fmtMoney(p.faturamento) +
-        '</td><td><span class="status-badge status-' +
-        p.status +
-        '">' +
-        (STATUS_LABELS[p.status] || p.status) +
-        "</span></td></tr>"
+        "<tr><td>" + (p.descricao || "") +
+        "</td><td>" + (p.departamento || "") +
+        "</td><td>" + (p.marca || "") +
+        '</td><td class="num">' + fmtInt(p.estoque_un) +
+        '</td><td class="num">' + Number(p.dias_estoque_un || 0).toFixed(1) +
+        '</td><td class="num">' + fmtInt(p.vendas_un) +
+        '</td><td class="num">' + fmtMoney(p.faturamento) +
+        '</td><td><span class="status-badge status-' + p.status + '">' +
+        (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
     )
     .join("");
 
   const footer = document.getElementById("table-footer");
-  if (footer) {
-    footer.textContent = fmtInt(rows.length) + " produtos";
-  }
+  if (footer) footer.textContent = fmtInt(rows.length) + " produtos";
 }
 
 function updateMarcaToggleText() {
@@ -417,19 +387,11 @@ function renderMarcaList(filterText) {
       const checked = state.selectedMarcas.has(m) ? "checked" : "";
       const safeId = "marca-" + m.replace(/[^a-zA-Z0-9]/g, "_");
       const safeAttr = m.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-      const safeText = m.replace(/</g, "&lt;");
       return (
-        '<li class="ms-item"><label for="' +
-        safeId +
-        '"><input type="checkbox" id="' +
-        safeId +
-        '" data-marca="' +
-        safeAttr +
-        '" ' +
-        checked +
-        "><span>" +
-        safeText +
-        "</span></label></li>"
+        '<li class="ms-item"><label for="' + safeId +
+        '"><input type="checkbox" id="' + safeId +
+        '" data-marca="' + safeAttr + '" ' + checked +
+        "><span>" + m.replace(/</g, "&lt;") + "</span></label></li>"
       );
     })
     .join("");
@@ -540,10 +502,7 @@ function setupTableControls() {
 }
 
 function refreshAll() {
-  // produtos com marca (+ dept se selecionado) → KPIs, donut, barras, tabela
   const products = getBaseProducts();
-
-  // saúde: lista de depts considerando só filtro de marca (para poder clicar em outros depts)
   let productsForHealth = data.produtos || [];
   if (state.selectedMarcas.size > 0) {
     productsForHealth = productsForHealth.filter((p) =>
