@@ -68,6 +68,7 @@
       </div>
     </div>
     <span class="filter-hint" id="marca-hint"></span>
+    <button type="button" id="clear-dept-filter" class="clear-dept-btn" hidden>✕ Limpar departamento</button>
   </div>
 </div>
 
@@ -85,19 +86,20 @@
     <ul class="legend" id="donut-legend"></ul>
   </section>
 
-  <!-- Barras clusterizadas por MARCA: Faturamento + Vendas UN -->
+  <!-- Barras clusterizadas por DEPARTAMENTO -->
   <section class="panel panel-bars">
-    <h2>FATURAMENTO × VENDAS UN POR MARCA</h2>
+    <h2>FATURAMENTO × VENDAS UN POR DEPARTAMENTO</h2>
     <div class="cluster-legend">
       <span><i class="leg-fat"></i> Faturamento (R$)</span>
       <span><i class="leg-vend"></i> Vendas Atual UN</span>
     </div>
-    <div class="cluster-bars" id="marca-bars"></div>
+    <div class="cluster-bars" id="dept-bars"></div>
   </section>
 
-  <!-- Saúde: tabela por DEPARTAMENTO -->
+  <!-- Saúde por DEPARTAMENTO (clicável para filtrar) -->
   <section class="panel panel-gauge">
     <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+    <p class="click-hint">Clique em um departamento para filtrar o dashboard</p>
     <div class="table-scroll dept-scroll">
       <table class="status-table dept-health-table" id="dept-health-table">
         <thead>
@@ -131,7 +133,7 @@
       </div>
     </div>
 
-    <div class="table-scroll">
+    <div class="table-scroll product-scroll">
       <table class="product-table">
         <thead>
           <tr>
@@ -140,6 +142,7 @@
             <th data-key="marca">Marca</th>
             <th data-key="estoque_un" class="num">Estoque UN</th>
             <th data-key="dias_estoque_un" class="num">Dias Estoque</th>
+            <th data-key="vendas_un" class="num">Vendas Atual UN</th>
             <th data-key="faturamento" class="num">Faturamento</th>
             <th data-key="status">Status</th>
           </tr>
@@ -148,7 +151,7 @@
       </table>
     </div>
 
-    <div class="pagination" id="pagination"></div>
+    <div class="table-footer" id="table-footer"></div>
   </section>
 
 </main>

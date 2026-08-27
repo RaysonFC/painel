@@ -1,5 +1,4 @@
 // script.js - Dashboard Food Service | Estoque
-// Filtro multi-marca + barras clusterizadas por marca + saúde por departamento
 
 const VENDAS_COLORS = {
   Crescimento: "#7cb342",
@@ -32,14 +31,13 @@ const SITUACAO_CLASS = {
 const data = DASHBOARD_DATA;
 const META_MENSAL = (data.kpis && data.kpis.meta_mensal) || 644633;
 
-const PAGE_SIZE = 50;
 let state = {
   status: "Todos",
   search: "",
   sortKey: "faturamento",
   sortDir: "desc",
-  page: 1,
   selectedMarcas: new Set(),
+  selectedDept: null, // cross-filter por departamento (clique na tabela de saúde)
 };
 
 const ALL_MARCAS = (() => {
@@ -59,10 +57,16 @@ const fmtNum = (v, d) =>
 const fmtPct = (v) =>
   (Number(v || 0) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
-function getProductsByMarca() {
-  const rows = data.produtos || [];
-  if (state.selectedMarcas.size === 0) return rows;
-  return rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
+/** Base filtrada por marca + departamento (cross-filter) */
+function getBaseProducts() {
+  let rows = data.produtos || [];
+  if (state.selectedMarcas.size > 0) {
+    rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
+  }
+  if (state.selectedDept) {
+    rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
+  }
+  return rows;
 }
 
 function classifySituacao(vendas_un, media_mensal_un) {
@@ -100,22 +104,22 @@ function computeVendasStatusSummary(products) {
   }));
 }
 
-/** Barras clusterizadas: agrega por marca (faturamento + vendas_un) */
-function computeMarcaSummary(products) {
+/** Agrega por departamento para barras clusterizadas */
+function computeDeptBars(products) {
   const map = {};
   products.forEach((p) => {
-    const m = (p.marca || "").trim() || "(sem marca)";
-    if (!map[m]) map[m] = { marca: m, faturamento: 0, vendas_un: 0 };
-    map[m].faturamento += Number(p.faturamento) || 0;
-    map[m].vendas_un += Number(p.vendas_un) || 0;
+    const d = p.departamento || "OUTROS";
+    if (!map[d]) map[d] = { departamento: d, faturamento: 0, vendas_un: 0 };
+    map[d].faturamento += Number(p.faturamento) || 0;
+    map[d].vendas_un += Number(p.vendas_un) || 0;
   });
   return Object.values(map).sort((a, b) => b.faturamento - a.faturamento);
 }
 
-/** Saúde por departamento */
-function computeDeptHealth(products) {
+/** Saúde por departamento (sempre a partir dos produtos filtrados por marca, sem o filtro de dept para poder clicar em outros) */
+function computeDeptHealth(productsForHealth) {
   const map = {};
-  products.forEach((p) => {
+  productsForHealth.forEach((p) => {
     const d = p.departamento || "OUTROS";
     if (!map[d]) {
       map[d] = {
@@ -211,12 +215,16 @@ function renderDonut(vendasSummary, vendaAtual) {
   }
 }
 
-/** Barras horizontais clusterizadas: 2 barras por marca (escalas independentes) */
-function renderMarcaBars(marcaSummary) {
-  const el = document.getElementById("marca-bars");
+/**
+ * Barras horizontais clusterizadas por DEPARTAMENTO.
+ * Valor em branco quando a barra cobre bem o texto (pct >= 42%),
+ * senão mantém a cor escura padrão.
+ */
+function renderDeptBars(deptBars) {
+  const el = document.getElementById("dept-bars");
   if (!el) return;
 
-  const items = marcaSummary; // todas as marcas
+  const items = deptBars;
   const maxFat = Math.max(...items.map((d) => d.faturamento), 1);
   const maxVend = Math.max(...items.map((d) => d.vendas_un), 1);
 
@@ -224,26 +232,33 @@ function renderMarcaBars(marcaSummary) {
     .map((d) => {
       const pctFat = (d.faturamento / maxFat) * 100;
       const pctVend = (d.vendas_un / maxVend) * 100;
+      // se a barra cobre a maior parte da faixa, texto branco; senão cor padrão
+      const clsFat = pctFat >= 42 ? "cluster-val on-bar" : "cluster-val";
+      const clsVend = pctVend >= 42 ? "cluster-val on-bar" : "cluster-val";
       return (
         '<div class="cluster-row">' +
         '<span class="cluster-label" title="' +
-        d.marca +
+        d.departamento +
         '">' +
-        d.marca +
+        d.departamento +
         "</span>" +
         '<div class="cluster-tracks">' +
         '<div class="cluster-track">' +
         '<div class="cluster-fill fat" style="width:' +
         pctFat +
         '%"></div>' +
-        '<span class="cluster-val">' +
+        '<span class="' +
+        clsFat +
+        '">' +
         fmtMoney(d.faturamento) +
         "</span></div>" +
         '<div class="cluster-track">' +
         '<div class="cluster-fill vend" style="width:' +
         pctVend +
         '%"></div>' +
-        '<span class="cluster-val">' +
+        '<span class="' +
+        clsVend +
+        '">' +
         fmtInt(d.vendas_un) +
         " un</span></div>" +
         "</div></div>"
@@ -252,7 +267,7 @@ function renderMarcaBars(marcaSummary) {
     .join("");
 }
 
-/** Tabela saúde por departamento */
+/** Tabela saúde — clique filtra o site inteiro pelo departamento */
 function renderDeptHealth(deptHealth) {
   const tbody = document.querySelector("#dept-health-table tbody");
   if (!tbody) return;
@@ -261,8 +276,13 @@ function renderDeptHealth(deptHealth) {
     .map((r) => {
       const sit = r.situacao || "Sem Vendas";
       const cls = SITUACAO_CLASS[sit] || "sit-sem";
+      const active = state.selectedDept === r.departamento ? " row-active" : "";
       return (
-        "<tr>" +
+        '<tr class="dept-row' +
+        active +
+        '" data-dept="' +
+        (r.departamento || "").replace(/"/g, "&quot;") +
+        '">' +
         "<td>" +
         (r.departamento || "") +
         '</td><td class="num">' +
@@ -283,6 +303,30 @@ function renderDeptHealth(deptHealth) {
       );
     })
     .join("");
+
+  tbody.querySelectorAll("tr.dept-row").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const dept = tr.getAttribute("data-dept");
+      if (state.selectedDept === dept) {
+        state.selectedDept = null; // toggle off
+      } else {
+        state.selectedDept = dept;
+      }
+      updateDeptFilterUI();
+      refreshAll();
+    });
+  });
+}
+
+function updateDeptFilterUI() {
+  const btn = document.getElementById("clear-dept-filter");
+  if (!btn) return;
+  if (state.selectedDept) {
+    btn.hidden = false;
+    btn.textContent = "✕ Limpar: " + state.selectedDept;
+  } else {
+    btn.hidden = true;
+  }
 }
 
 function getFilteredProducts(baseProducts) {
@@ -308,16 +352,13 @@ function getFilteredProducts(baseProducts) {
   return rows;
 }
 
+/** Tabela de produtos: todas as linhas filtradas, scroll (~50 linhas visíveis) */
 function renderTable(baseProducts) {
   const tbody = document.getElementById("product-tbody");
   if (!tbody) return;
   const rows = getFilteredProducts(baseProducts);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  state.page = Math.min(state.page, totalPages);
-  const startIdx = (state.page - 1) * PAGE_SIZE;
-  const pageRows = rows.slice(startIdx, startIdx + PAGE_SIZE);
 
-  tbody.innerHTML = pageRows
+  tbody.innerHTML = rows
     .map(
       (p) =>
         "<tr><td>" +
@@ -331,6 +372,8 @@ function renderTable(baseProducts) {
         '</td><td class="num">' +
         Number(p.dias_estoque_un || 0).toFixed(1) +
         '</td><td class="num">' +
+        fmtInt(p.vendas_un) +
+        '</td><td class="num">' +
         fmtMoney(p.faturamento) +
         '</td><td><span class="status-badge status-' +
         p.status +
@@ -340,32 +383,10 @@ function renderTable(baseProducts) {
     )
     .join("");
 
-  renderPagination(rows.length, totalPages);
-}
-
-function renderPagination(totalRows, totalPages) {
-  const el = document.getElementById("pagination");
-  if (!el) return;
-  el.innerHTML =
-    '<button id="prev-page" ' +
-    (state.page <= 1 ? "disabled" : "") +
-    ">‹ Anterior</button><span>Página " +
-    state.page +
-    " de " +
-    totalPages +
-    " (" +
-    fmtInt(totalRows) +
-    ' produtos)</span><button id="next-page" ' +
-    (state.page >= totalPages ? "disabled" : "") +
-    ">Próxima ›</button>";
-  document.getElementById("prev-page")?.addEventListener("click", () => {
-    state.page--;
-    refreshAll();
-  });
-  document.getElementById("next-page")?.addEventListener("click", () => {
-    state.page++;
-    refreshAll();
-  });
+  const footer = document.getElementById("table-footer");
+  if (footer) {
+    footer.textContent = fmtInt(rows.length) + " produtos";
+  }
 }
 
 function updateMarcaToggleText() {
@@ -419,7 +440,6 @@ function renderMarcaList(filterText) {
       if (cb.checked) state.selectedMarcas.add(marca);
       else state.selectedMarcas.delete(marca);
       updateMarcaToggleText();
-      state.page = 1;
       refreshAll();
     });
   });
@@ -460,7 +480,6 @@ function setupMarcaDropdown() {
       ALL_MARCAS.forEach((m) => state.selectedMarcas.add(m));
       updateMarcaToggleText();
       renderMarcaList(search ? search.value : "");
-      state.page = 1;
       refreshAll();
     });
   }
@@ -470,13 +489,22 @@ function setupMarcaDropdown() {
       state.selectedMarcas.clear();
       updateMarcaToggleText();
       renderMarcaList(search ? search.value : "");
-      state.page = 1;
+      refreshAll();
+    });
+  }
+
+  const clearDept = document.getElementById("clear-dept-filter");
+  if (clearDept) {
+    clearDept.addEventListener("click", () => {
+      state.selectedDept = null;
+      updateDeptFilterUI();
       refreshAll();
     });
   }
 
   renderMarcaList("");
   updateMarcaToggleText();
+  updateDeptFilterUI();
 }
 
 function setupTableControls() {
@@ -484,7 +512,6 @@ function setupTableControls() {
   if (searchBox) {
     searchBox.addEventListener("input", (e) => {
       state.search = e.target.value;
-      state.page = 1;
       refreshAll();
     });
   }
@@ -494,7 +521,6 @@ function setupTableControls() {
       document.querySelectorAll(".status-filters .chip").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.status = btn.dataset.status;
-      state.page = 1;
       refreshAll();
     });
   });
@@ -514,15 +540,25 @@ function setupTableControls() {
 }
 
 function refreshAll() {
-  const products = getProductsByMarca();
+  // produtos com marca (+ dept se selecionado) → KPIs, donut, barras, tabela
+  const products = getBaseProducts();
+
+  // saúde: lista de depts considerando só filtro de marca (para poder clicar em outros depts)
+  let productsForHealth = data.produtos || [];
+  if (state.selectedMarcas.size > 0) {
+    productsForHealth = productsForHealth.filter((p) =>
+      state.selectedMarcas.has((p.marca || "").trim())
+    );
+  }
+
   const kpis = computeKpis(products);
   const vendasSummary = computeVendasStatusSummary(products);
-  const marcaSummary = computeMarcaSummary(products);
-  const deptHealth = computeDeptHealth(products);
+  const deptBars = computeDeptBars(products);
+  const deptHealth = computeDeptHealth(productsForHealth);
 
   renderKpis(kpis);
   renderDonut(vendasSummary, kpis.venda_atual);
-  renderMarcaBars(marcaSummary);
+  renderDeptBars(deptBars);
   renderDeptHealth(deptHealth);
   renderTable(products);
 }
