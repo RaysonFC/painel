@@ -1,0 +1,67 @@
+================================================
+  FOOD SERVICE | ESTOQUE - COMO ATUALIZAR A BASE
+================================================
+
+O site NÃO lê o Excel direto. O fluxo é:
+
+  Geral.xlsx  -->  prepare_data.py  -->  data.js  -->  site
+
+------------------------------------------------
+PASSO A PASSO (Windows)
+------------------------------------------------
+1. Coloque o arquivo Geral.xlsx ATUALIZADO na mesma
+   pasta do site (junto com index.html, data.js, etc.)
+
+2. Dê dois cliques em:  ATUALIZAR_DADOS.bat
+
+   (Ou abra o Prompt de Comando nessa pasta e rode:
+    python prepare_data.py)
+
+3. Abra o index.html no navegador e aperte Ctrl+F5
+   para forçar o recarregamento (sem cache).
+
+------------------------------------------------
+PASSO A PASSO (Linux / Mac)
+------------------------------------------------
+1. Coloque o Geral.xlsx atualizado na pasta do site.
+
+2. No terminal, dentro da pasta:
+     python3 prepare_data.py
+   ou:
+     ./atualizar_dados.sh
+
+3. Abra index.html e force o refresh (Ctrl+F5).
+
+------------------------------------------------
+REQUISITOS
+------------------------------------------------
+- Python 3 instalado
+- Bibliotecas:  pip install pandas openpyxl
+
+------------------------------------------------
+REGRAS DA PLANILHA
+------------------------------------------------
+- Nome do arquivo: Geral.xlsx
+- Aba obrigatória: COMPARAT_FOOD
+- Colunas usadas (nomes exatos):
+    COD, DESCRIÇÃO, MARCA, DEPARTAMENTO,
+    FATURAMENTO_LIQUID, VENDAS ATUAL CX, VENDAS ATUAL UN,
+    VENDAS M-1 UN, VENDAS M-2 UN, VENDAS M-3 UN,
+    MÉDIA MENSAL UN, GIRO DIA UN, GIRO SEMANA UN,
+    ESTOQUE UN, ESTOQUE CX, DIAS ESTOQUE UN, ATINGIMENTO META
+
+- Meta mensal: edite META_MENSAL no prepare_data.py
+  (valor atual: 644633)
+
+------------------------------------------------
+ARQUIVOS DO SITE
+------------------------------------------------
+  index.html          página principal
+  style.css           estilos
+  script.js           lógica do dashboard
+  data.js             DADOS (gerado pelo prepare_data.py)
+  prepare_data.py     conversor Excel -> data.js
+  ATUALIZAR_DADOS.bat atalho Windows
+  atualizar_dados.sh  atalho Linux/Mac
+  Geral.xlsx          base Excel (não precisa ir no ZIP do site)
+

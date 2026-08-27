@@ -1,0 +1,38 @@
+================================================
+  COMO ATUALIZAR A BASE (GitHub - automático)
+================================================
+
+Você NÃO precisa rodar Python no PC.
+
+1. Coloque o Geral.xlsx novo na pasta do site no repositório
+   (mesma pasta do index.html e prepare_data.py).
+
+2. Envie para o GitHub:
+     git add Geral.xlsx
+     git commit -m "Atualiza base Excel"
+     git push
+
+3. O GitHub Actions roda sozinho, gera o data.js e faz commit.
+
+4. Espere 1–3 minutos e abra o site com Ctrl+F5.
+
+------------------------------------------------
+PRIMEIRA VEZ (ativar Actions)
+------------------------------------------------
+- No GitHub: aba Actions → se pedir, habilite workflows.
+- Settings → Actions → General → permita workflows
+  (permissão de leitura e escrita / Read and write).
+
+------------------------------------------------
+RODAR NA MÃO (se precisar)
+------------------------------------------------
+Actions → "Atualizar data.js a partir do Excel" → Run workflow
+
+------------------------------------------------
+ARQUIVOS IMPORTANTES
+------------------------------------------------
+  Geral.xlsx              ← você só atualiza este
+  prepare_data.py         ← conversor (já no repo)
+  data.js                 ← gerado pelo Action
+  .github/workflows/...   ← automação
+  index.html, script.js, style.css
