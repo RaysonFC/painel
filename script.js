@@ -1,5 +1,5 @@
 // script.js - Dashboard Food Service | Estoque
-// Filtro global multi-seleção por Marcas + status/busca/paginação
+// Filtro multi-marca + barras clusterizadas por marca + saúde por departamento
 
 const VENDAS_COLORS = {
   Crescimento: "#7cb342",
@@ -13,14 +13,21 @@ const VENDAS_LABELS = {
   Estavel: "➡️ Estável",
 };
 
-const STATUS_COLORS = {
-  Ruptura: "#e04b3f",
-  Critico: "#f0973d",
-  OK: "#7cb342",
-  Over: "#2d6cdf",
-};
 const STATUS_ORDER = ["Ruptura", "Critico", "OK", "Over"];
 const STATUS_LABELS = { Ruptura: "Ruptura", Critico: "Crítico", OK: "OK", Over: "Over" };
+
+const SITUACAO_LABELS = {
+  "Bateu a Meta": "Bateu a Meta",
+  "Em Andamento": "Em Andamento",
+  "Abaixo da Meta": "Abaixo da Meta",
+  "Sem Vendas": "Sem Vendas",
+};
+const SITUACAO_CLASS = {
+  "Bateu a Meta": "sit-bateu",
+  "Em Andamento": "sit-andamento",
+  "Abaixo da Meta": "sit-abaixo",
+  "Sem Vendas": "sit-sem",
+};
 
 const data = DASHBOARD_DATA;
 const META_MENSAL = (data.kpis && data.kpis.meta_mensal) || 644633;
@@ -47,11 +54,26 @@ const ALL_MARCAS = (() => {
 const fmtMoney = (v) =>
   "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtInt = (v) => Number(v || 0).toLocaleString("pt-BR");
+const fmtNum = (v, d) =>
+  Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtPct = (v) =>
+  (Number(v || 0) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
 function getProductsByMarca() {
   const rows = data.produtos || [];
   if (state.selectedMarcas.size === 0) return rows;
   return rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
+}
+
+function classifySituacao(vendas_un, media_mensal_un) {
+  const v = Number(vendas_un) || 0;
+  const m = Number(media_mensal_un) || 0;
+  if (v <= 0) return "Sem Vendas";
+  if (m <= 0) return "Em Andamento";
+  const pct = v / m;
+  if (pct >= 1) return "Bateu a Meta";
+  if (pct >= 0.5) return "Em Andamento";
+  return "Abaixo da Meta";
 }
 
 function computeKpis(products) {
@@ -78,31 +100,47 @@ function computeVendasStatusSummary(products) {
   }));
 }
 
-function computeDeptSummary(products) {
+/** Barras clusterizadas: agrega por marca (faturamento + vendas_un) */
+function computeMarcaSummary(products) {
+  const map = {};
+  products.forEach((p) => {
+    const m = (p.marca || "").trim() || "(sem marca)";
+    if (!map[m]) map[m] = { marca: m, faturamento: 0, vendas_un: 0 };
+    map[m].faturamento += Number(p.faturamento) || 0;
+    map[m].vendas_un += Number(p.vendas_un) || 0;
+  });
+  return Object.values(map).sort((a, b) => b.faturamento - a.faturamento);
+}
+
+/** Saúde por departamento */
+function computeDeptHealth(products) {
   const map = {};
   products.forEach((p) => {
     const d = p.departamento || "OUTROS";
-    if (!map[d]) map[d] = { departamento: d, estoque_un: 0, faturamento: 0, vendas_un: 0 };
-    map[d].estoque_un += Number(p.estoque_un) || 0;
+    if (!map[d]) {
+      map[d] = {
+        departamento: d,
+        faturamento: 0,
+        vendas_un: 0,
+        media_mensal_un: 0,
+        giro_dia_un: 0,
+      };
+    }
     map[d].faturamento += Number(p.faturamento) || 0;
     map[d].vendas_un += Number(p.vendas_un) || 0;
+    map[d].media_mensal_un += Number(p.media_mensal_un) || 0;
+    map[d].giro_dia_un += Number(p.giro_dia_un) || 0;
   });
-  return Object.values(map).sort((a, b) => b.estoque_un - a.estoque_un);
-}
-
-function computeStatusSummary(products) {
-  const map = {};
-  STATUS_ORDER.forEach((st) => {
-    map[st] = { status: st, qtd_produtos: 0, estoque_un: 0, faturamento: 0 };
-  });
-  products.forEach((p) => {
-    const st = p.status || "OK";
-    if (!map[st]) map[st] = { status: st, qtd_produtos: 0, estoque_un: 0, faturamento: 0 };
-    map[st].qtd_produtos += 1;
-    map[st].estoque_un += Number(p.estoque_un) || 0;
-    map[st].faturamento += Number(p.faturamento) || 0;
-  });
-  return STATUS_ORDER.map((st) => map[st]);
+  return Object.values(map)
+    .map((r) => {
+      const pct = r.media_mensal_un ? r.vendas_un / r.media_mensal_un : 0;
+      return {
+        ...r,
+        pct_meta: pct,
+        situacao: classifySituacao(r.vendas_un, r.media_mensal_un),
+      };
+    })
+    .sort((a, b) => b.faturamento - a.faturamento);
 }
 
 function renderKpis(kpis) {
@@ -132,8 +170,7 @@ function donutSlice(cx, cy, rOuter, rInner, startAngle, endAngle, color) {
     "M " + p1.x + " " + p1.y +
     " A " + rOuter + " " + rOuter + " 0 " + largeArc + " 1 " + p2.x + " " + p2.y +
     " L " + p3.x + " " + p3.y +
-    " A " + rInner + " " + rInner + " 0 " + largeArc + " 0 " + p4.x + " " + p4.y +
-    " Z";
+    " A " + rInner + " " + rInner + " 0 " + largeArc + " 0 " + p4.x + " " + p4.y + " Z";
   return '<path d="' + d + '" fill="' + color + '"></path>';
 }
 
@@ -162,11 +199,11 @@ function renderDonut(vendasSummary, vendaAtual) {
     legend.innerHTML = ordered
       .map(
         (s) =>
-          "<li><span class=\"dot\" style=\"background:" +
+          '<li><span class="dot" style="background:' +
           VENDAS_COLORS[s.status_vendas] +
-          "\"></span><span class=\"lg-label\">" +
+          '"></span><span class="lg-label">' +
           VENDAS_LABELS[s.status_vendas] +
-          "</span><span class=\"lg-value\">" +
+          '</span><span class="lg-value">' +
           Number(s.vendas_un).toFixed(2) +
           "%</span></li>"
       )
@@ -174,77 +211,78 @@ function renderDonut(vendasSummary, vendaAtual) {
   }
 }
 
-function renderDeptBars(deptSummary) {
-  const el = document.getElementById("dept-bars");
+/** Barras horizontais clusterizadas: 2 barras por marca (escalas independentes) */
+function renderMarcaBars(marcaSummary) {
+  const el = document.getElementById("marca-bars");
   if (!el) return;
-  const depts = [...deptSummary].sort((a, b) => b.estoque_un - a.estoque_un).slice(0, 8);
-  const max = Math.max(...depts.map((d) => d.estoque_un), 1);
-  el.innerHTML = depts
+
+  const items = marcaSummary; // todas as marcas
+  const maxFat = Math.max(...items.map((d) => d.faturamento), 1);
+  const maxVend = Math.max(...items.map((d) => d.vendas_un), 1);
+
+  el.innerHTML = items
     .map((d) => {
-      const pct = max ? (d.estoque_un / max) * 100 : 0;
+      const pctFat = (d.faturamento / maxFat) * 100;
+      const pctVend = (d.vendas_un / maxVend) * 100;
       return (
-        '<div class="bar-row"><span class="bar-label" title="' +
-        d.departamento +
+        '<div class="cluster-row">' +
+        '<span class="cluster-label" title="' +
+        d.marca +
         '">' +
-        d.departamento +
-        '</span><div class="bar-track"><div class="bar-fill" style="width:' +
-        pct +
-        '%"></div></div><span class="bar-value">' +
-        fmtInt(d.estoque_un) +
-        " un</span></div>"
+        d.marca +
+        "</span>" +
+        '<div class="cluster-tracks">' +
+        '<div class="cluster-track">' +
+        '<div class="cluster-fill fat" style="width:' +
+        pctFat +
+        '%"></div>' +
+        '<span class="cluster-val">' +
+        fmtMoney(d.faturamento) +
+        "</span></div>" +
+        '<div class="cluster-track">' +
+        '<div class="cluster-fill vend" style="width:' +
+        pctVend +
+        '%"></div>' +
+        '<span class="cluster-val">' +
+        fmtInt(d.vendas_un) +
+        " un</span></div>" +
+        "</div></div>"
       );
     })
     .join("");
 }
 
-function arcPath(cx, cy, r, a1, a2) {
-  const toRad = (a) => (a * Math.PI) / 180;
-  const p1 = { x: cx + r * Math.cos(toRad(a1)), y: cy + r * Math.sin(toRad(a1)) };
-  const p2 = { x: cx + r * Math.cos(toRad(a2)), y: cy + r * Math.sin(toRad(a2)) };
-  const largeArc = a2 - a1 > 180 ? 1 : 0;
-  return "M " + p1.x + " " + p1.y + " A " + r + " " + r + " 0 " + largeArc + " 1 " + p2.x + " " + p2.y;
-}
+/** Tabela saúde por departamento */
+function renderDeptHealth(deptHealth) {
+  const tbody = document.querySelector("#dept-health-table tbody");
+  if (!tbody) return;
 
-function renderGauge(statusSummary) {
-  const byStatus = Object.fromEntries(statusSummary.map((s) => [s.status, s]));
-  const total = statusSummary.reduce((a, s) => a + s.qtd_produtos, 0);
-  const saudavel = (byStatus.OK?.qtd_produtos || 0) + (byStatus.Over?.qtd_produtos || 0);
-  const pct = total ? Math.round((saudavel / total) * 100) : 0;
-
-  const elGaugePct = document.getElementById("gauge-pct");
-  if (elGaugePct) elGaugePct.textContent = pct + "%";
-
-  const svg = document.getElementById("gauge");
-  if (svg) {
-    const cx = 100, cy = 100, r = 85;
-    const startA = -180, endA = 0;
-    const valueA = startA + (pct / 100) * 180;
-    const bg = arcPath(cx, cy, r, startA, endA);
-    const fg = arcPath(cx, cy, r, startA, valueA);
-    svg.innerHTML =
-      '<path d="' + bg + '" stroke="#e1e5ee" stroke-width="18" fill="none" stroke-linecap="round"/>' +
-      '<path d="' + fg + '" stroke="#7cb342" stroke-width="18" fill="none" stroke-linecap="round"/>';
-  }
-
-  const tbody = document.querySelector("#status-table tbody");
-  if (tbody) {
-    tbody.innerHTML = STATUS_ORDER.map((st) => {
-      const s = byStatus[st] || { qtd_produtos: 0, estoque_un: 0, faturamento: 0 };
+  tbody.innerHTML = deptHealth
+    .map((r) => {
+      const sit = r.situacao || "Sem Vendas";
+      const cls = SITUACAO_CLASS[sit] || "sit-sem";
       return (
-        "<tr><td><span class=\"status-badge status-" +
-        st +
-        "\">" +
-        STATUS_LABELS[st] +
-        "</span></td><td>" +
-        fmtInt(s.qtd_produtos) +
-        "</td><td>" +
-        fmtInt(s.estoque_un) +
-        "</td><td>" +
-        fmtMoney(s.faturamento) +
+        "<tr>" +
+        "<td>" +
+        (r.departamento || "") +
+        '</td><td class="num">' +
+        fmtMoney(r.faturamento) +
+        '</td><td class="num">' +
+        fmtNum(r.media_mensal_un, 0) +
+        '</td><td class="num">' +
+        fmtNum(r.vendas_un, 0) +
+        '</td><td class="num">' +
+        fmtNum(r.giro_dia_un, 1) +
+        '</td><td><span class="sit-badge ' +
+        cls +
+        '">' +
+        (SITUACAO_LABELS[sit] || sit) +
+        '</span></td><td class="num">' +
+        fmtPct(r.pct_meta) +
         "</td></tr>"
       );
-    }).join("");
-  }
+    })
+    .join("");
 }
 
 function getFilteredProducts(baseProducts) {
@@ -262,7 +300,8 @@ function getFilteredProducts(baseProducts) {
   const key = state.sortKey;
   const dir = state.sortDir === "asc" ? 1 : -1;
   rows = [...rows].sort((a, b) => {
-    const va = a[key] ?? "", vb = b[key] ?? "";
+    const va = a[key] ?? "",
+      vb = b[key] ?? "";
     if (typeof va === "string") return va.localeCompare(vb) * dir;
     return (va - vb) * dir;
   });
@@ -478,12 +517,13 @@ function refreshAll() {
   const products = getProductsByMarca();
   const kpis = computeKpis(products);
   const vendasSummary = computeVendasStatusSummary(products);
-  const deptSummary = computeDeptSummary(products);
-  const statusSummary = computeStatusSummary(products);
+  const marcaSummary = computeMarcaSummary(products);
+  const deptHealth = computeDeptHealth(products);
+
   renderKpis(kpis);
   renderDonut(vendasSummary, kpis.venda_atual);
-  renderDeptBars(deptSummary);
-  renderGauge(statusSummary);
+  renderMarcaBars(marcaSummary);
+  renderDeptHealth(deptHealth);
   renderTable(products);
 }
 

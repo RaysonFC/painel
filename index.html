@@ -48,7 +48,6 @@
   </div>
 </header>
 
-<!-- Barra de filtro global por Marcas (multi-seleção) -->
 <div class="filter-bar">
   <div class="filter-bar-inner">
     <label class="filter-label">Filtrar por Marca:</label>
@@ -86,31 +85,35 @@
     <ul class="legend" id="donut-legend"></ul>
   </section>
 
+  <!-- Barras clusterizadas por MARCA: Faturamento + Vendas UN -->
   <section class="panel panel-bars">
-    <h2>ESTOQUE (UN) POR DEPARTAMENTO</h2>
-    <div class="bars" id="dept-bars"></div>
+    <h2>FATURAMENTO × VENDAS UN POR MARCA</h2>
+    <div class="cluster-legend">
+      <span><i class="leg-fat"></i> Faturamento (R$)</span>
+      <span><i class="leg-vend"></i> Vendas Atual UN</span>
+    </div>
+    <div class="cluster-bars" id="marca-bars"></div>
   </section>
 
+  <!-- Saúde: tabela por DEPARTAMENTO -->
   <section class="panel panel-gauge">
-    <h2>SAÚDE DO ESTOQUE</h2>
-    <div class="gauge-wrap">
-      <svg id="gauge" viewBox="0 0 200 110"></svg>
-      <div class="gauge-value">
-        <span id="gauge-pct">0%</span>
-        <small>Saudável (OK + Over)</small>
-      </div>
+    <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+    <div class="table-scroll dept-scroll">
+      <table class="status-table dept-health-table" id="dept-health-table">
+        <thead>
+          <tr>
+            <th>Departamento</th>
+            <th class="num">Faturamento</th>
+            <th class="num">Média Vendas UN</th>
+            <th class="num">Vendas Atual UN</th>
+            <th class="num">Giro Dia</th>
+            <th>Situação</th>
+            <th class="num">% Meta</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <table class="status-table" id="status-table">
-      <thead>
-        <tr>
-          <th>Status</th>
-          <th>Produtos</th>
-          <th>Estoque UN</th>
-          <th>Faturamento</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
   </section>
 
   <section class="panel panel-table">
