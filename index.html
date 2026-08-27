@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Food Service | Controle de Estoque</title>
   <link rel="stylesheet" href="style.css">
-  
-  <!-- Importação assíncrona garantindo que a árvore do DOM esteja totalmente carregada -->
   <script src="data.js" defer></script>
   <script src="script.js" defer></script>
 </head>
@@ -50,9 +48,32 @@
   </div>
 </header>
 
+<!-- Barra de filtro global por Marcas (multi-seleção) -->
+<div class="filter-bar">
+  <div class="filter-bar-inner">
+    <label class="filter-label">Filtrar por Marca:</label>
+    <div class="ms-dropdown" id="marca-dropdown">
+      <button type="button" class="ms-toggle" id="marca-toggle" aria-haspopup="listbox" aria-expanded="false">
+        <span id="marca-toggle-text">Todas as marcas</span>
+        <span class="ms-arrow">▾</span>
+      </button>
+      <div class="ms-panel" id="marca-panel" hidden>
+        <div class="ms-search-wrap">
+          <input type="search" id="marca-search" placeholder="Buscar marca..." autocomplete="off">
+        </div>
+        <div class="ms-actions">
+          <button type="button" id="marca-select-all">Selecionar todas</button>
+          <button type="button" id="marca-clear">Limpar</button>
+        </div>
+        <ul class="ms-list" id="marca-list" role="listbox" aria-multiselectable="true"></ul>
+      </div>
+    </div>
+    <span class="filter-hint" id="marca-hint"></span>
+  </div>
+</div>
+
 <main class="grid">
 
-  <!-- Painel Donut (SVG) -->
   <section class="panel panel-donut">
     <h2>VENDAS ATUAL UN</h2>
     <div class="donut-wrap">
@@ -65,13 +86,11 @@
     <ul class="legend" id="donut-legend"></ul>
   </section>
 
-  <!-- Painel Barras Departamento -->
   <section class="panel panel-bars">
     <h2>ESTOQUE (UN) POR DEPARTAMENTO</h2>
     <div class="bars" id="dept-bars"></div>
   </section>
 
-  <!-- Painel Gauge (SVG) + Tabela Resumo -->
   <section class="panel panel-gauge">
     <h2>SAÚDE DO ESTOQUE</h2>
     <div class="gauge-wrap">
@@ -94,7 +113,6 @@
     </table>
   </section>
 
-  <!-- Painel Tabela Principal de Produtos -->
   <section class="panel panel-table">
     <div class="table-toolbar">
       <h2>PRODUTOS</h2>
