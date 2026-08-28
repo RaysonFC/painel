@@ -1,10 +1,10 @@
 :root {
-  --navy-deep: #0C263F;
-  --navy: #0C263F;
-  --navy-light: #205789;
-  --blue: #205789;
-  --green: #19612B;
-  --green-dark: #145023;
+  --navy-deep: #16213e;
+  --navy: #1c2b4f;
+  --navy-light: #2a3d6b;
+  --blue: #2d6cdf;
+  --green: #7cb342;
+  --green-dark: #5a8c2c;
   --red: #e04b3f;
   --orange: #f0973d;
   --grey-bg: #f2f4f8;
@@ -25,7 +25,7 @@ body {
 }
 
 .topbar {
-  background: linear-gradient(135deg, #0C263F, #205789);
+  background: linear-gradient(135deg, var(--navy-deep), var(--navy-light));
   padding: 18px 28px;
   display: flex;
   align-items: center;
@@ -37,7 +37,7 @@ body {
 .brand { display: flex; align-items: center; gap: 12px; }
 
 .brand-mark {
-  background: #19612B;
+  background: var(--green);
   color: var(--navy-deep);
   font-weight: 800;
   font-size: 14px;
@@ -71,10 +71,10 @@ body {
 .kpi-label { font-size: 11px; font-weight: 700; opacity: 0.85; letter-spacing: 0.5px; }
 .kpi-value { font-size: 18px; font-weight: 800; }
 
-.kpi-meta { background: #0C263F; }
-.kpi-venda { background: #205789; }
-.kpi-falta { background: #19612B; }
-.kpi-estoque { background: #0C263F; }
+.kpi-meta { background: var(--navy-light); }
+.kpi-venda { background: var(--blue); }
+.kpi-falta { background: var(--green); }
+.kpi-estoque { background: var(--green-dark); }
 
 .filter-bar {
   background: var(--white);
@@ -251,6 +251,10 @@ body {
 .panel-table { grid-column: 1 / -1; }
 
 .donut-wrap { position: relative; width: 240px; margin: 0 auto; }
+.donut-wrap.donut-lg { width: 320px; max-width: 100%; }
+.donut-wrap.donut-lg .donut-center span { font-size: 26px; }
+.donut-wrap.donut-lg .donut-center small { font-size: 12px; }
+.donut-pct-label { font-size: 13px; font-weight: 800; fill: var(--navy); }
 #donut { width: 100%; height: auto; }
 .donut-center {
   position: absolute;
@@ -262,7 +266,7 @@ body {
 }
 .donut-center span { display: block; font-size: 22px; font-weight: 800; color: var(--navy); }
 .donut-center small { color: var(--text-muted); font-size: 11px; }
-.donut-pct-label { font-size: 11px; font-weight: 800; fill: var(--navy); }
+
 
 .legend { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -500,4 +504,39 @@ body {
   .ms-dropdown { min-width: 100%; max-width: 100%; }
   .cluster-val-ext { min-width: 70px; font-size: 10px; }
   .status-rules { flex-direction: column; gap: 6px; }
+}
+
+/* Top faturamento filters */
+.top-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.top-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.chip-top {
+  border: 1px solid var(--grey-line);
+  background: var(--white);
+  color: var(--text-dark);
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip-top:hover { border-color: var(--blue); color: var(--blue); }
+.chip-top.active {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+}
+
+.chip-count {
+  font-weight: 700;
+  opacity: 0.9;
+  margin-left: 2px;
 }
