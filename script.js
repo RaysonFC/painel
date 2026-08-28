@@ -38,6 +38,7 @@ let state = {
   sortKey: "faturamento",
   sortDir: "desc",
   page: 1,
+  topN: 0, // 0 = todos; 20/50/100 = top por faturamento
   selectedMarcas: new Set(),
   selectedDept: null,
 };
@@ -73,6 +74,10 @@ function getBaseProducts() {
   }
   if (state.selectedDept) {
     rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
+  }
+  // Status filtra o site inteiro (como departamento)
+  if (state.status && state.status !== "Todos") {
+    rows = rows.filter((p) => p.status === state.status);
   }
   return rows;
 }
@@ -189,7 +194,7 @@ function renderDonut(vendasSummary, vendaAtual) {
   const totalElem = document.getElementById("donut-total");
   if (totalElem) totalElem.textContent = fmtInt(Math.round(vendaAtual));
 
-  const cx = 120, cy = 120, rOuter = 85, rInner = 52, rLabel = 102;
+  const cx = 160, cy = 160, rOuter = 110, rInner = 68, rLabel = 138;
   let angleStart = -90;
   const paths = [];
   const labels = [];
@@ -305,7 +310,7 @@ function updateDeptFilterUI() {
 
 function getFilteredProducts(baseProducts) {
   let rows = baseProducts;
-  if (state.status !== "Todos") rows = rows.filter((p) => p.status === state.status);
+  // status já aplicado em getBaseProducts
   if (state.search) {
     const q = state.search.toLowerCase();
     rows = rows.filter(
@@ -315,6 +320,11 @@ function getFilteredProducts(baseProducts) {
         (p.marca || "").toLowerCase().includes(q) ||
         (p.departamento || "").toLowerCase().includes(q)
     );
+  }
+  // Top N por faturamento (apenas na tabela de produtos)
+  if (state.topN > 0) {
+    rows = [...rows].sort((a, b) => (Number(b.faturamento) || 0) - (Number(a.faturamento) || 0));
+    rows = rows.slice(0, state.topN);
   }
   const key = state.sortKey;
   const dir = state.sortDir === "asc" ? 1 : -1;
@@ -486,6 +496,25 @@ function setupMarcaDropdown() {
   updateDeptFilterUI();
 }
 
+function updateStatusCounts(productsForCount) {
+  // Contagens com base em marca/dept (sem status), para o usuário ver totais por status
+  let rows = data.produtos || [];
+  if (state.selectedMarcas.size > 0) {
+    rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
+  }
+  if (state.selectedDept) {
+    rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
+  }
+  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  rows.forEach((p) => {
+    if (counts[p.status] !== undefined) counts[p.status]++;
+  });
+  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
+    const el = document.getElementById("count-" + st);
+    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
+  });
+}
+
 function setupTableControls() {
   const searchBox = document.getElementById("search-box");
   if (searchBox) {
@@ -501,6 +530,16 @@ function setupTableControls() {
       document.querySelectorAll(".status-filters .chip").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.status = btn.dataset.status;
+      state.page = 1;
+      refreshAll();
+    });
+  });
+
+  document.querySelectorAll(".top-filters .chip-top").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".top-filters .chip-top").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.topN = Number(btn.dataset.top) || 0;
       state.page = 1;
       refreshAll();
     });
@@ -523,11 +562,16 @@ function setupTableControls() {
 
 function refreshAll() {
   const products = getBaseProducts();
+  // Saúde por departamento segue os mesmos filtros globais (marca + status)
+  // mas NÃO filtra por departamento selecionado (para ainda listar todos e permitir clique)
   let productsForHealth = data.produtos || [];
   if (state.selectedMarcas.size > 0) {
     productsForHealth = productsForHealth.filter((p) =>
       state.selectedMarcas.has((p.marca || "").trim())
     );
+  }
+  if (state.status && state.status !== "Todos") {
+    productsForHealth = productsForHealth.filter((p) => p.status === state.status);
   }
 
   const kpis = computeKpis(products);
@@ -540,6 +584,7 @@ function refreshAll() {
   renderDeptBars(deptBars);
   renderDeptHealth(deptHealth);
   renderTable(products);
+  updateStatusCounts();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
