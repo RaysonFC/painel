@@ -9,7 +9,7 @@ on:
       - "**/Geral.xlsx"
       - "prepare_data.py"
       - "**/prepare_data.py"
-  workflow_dispatch:  # permite rodar manualmente em Actions → Run workflow
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,6 +20,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # token padrão já tem permissão de escrita (contents: write)
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # busca histórico recente para conseguir rebase/push
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -34,10 +39,9 @@ jobs:
         run: |
           if [ -f "Geral.xlsx" ] && [ -f "prepare_data.py" ]; then
             echo "dir=." >> $GITHUB_OUTPUT
-          elif [ -f "docs/Geral.xlsx" ]; then
+          elif [ -f "docs/Geral.xlsx" ] && [ -f "docs/prepare_data.py" ]; then
             echo "dir=docs" >> $GITHUB_OUTPUT
           else
-            # procura em qualquer subpasta
             XLSX=$(find . -name "Geral.xlsx" -not -path "./.git/*" | head -1)
             if [ -z "$XLSX" ]; then
               echo "ERRO: Geral.xlsx não encontrado no repositório"
@@ -46,7 +50,7 @@ jobs:
             DIR=$(dirname "$XLSX")
             echo "dir=$DIR" >> $GITHUB_OUTPUT
           fi
-          echo "Pasta: $(cat $GITHUB_OUTPUT | grep dir)"
+          echo "Pasta do projeto: ${{ steps.find.outputs.dir }}"
 
       - name: Gerar data.js
         working-directory: ${{ steps.find.outputs.dir }}
@@ -60,11 +64,18 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add data.js
+
           if git diff --staged --quiet; then
             echo "Nenhuma alteração em data.js — base já estava atualizada."
-          else
-            git commit -m "chore: atualiza data.js a partir do Geral.xlsx [skip ci]"
-            git push
-            echo "data.js enviado com sucesso."
+            exit 0
           fi
+
+          git commit -m "chore: atualiza data.js a partir do Geral.xlsx [skip ci]"
+
+          # Evita erro "rejected (fetch first)": puxa o main remoto e aplica o commit por cima
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          git pull --rebase origin "$BRANCH" || git pull --rebase origin main
+          git push origin HEAD:"$BRANCH"
+          echo "data.js enviado com sucesso."
