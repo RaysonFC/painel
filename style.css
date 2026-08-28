@@ -83,10 +83,10 @@ body {
 .kpi-value { font-size: 18px; font-weight: 800; }
 
 /* Paleta azul nos KPIs */
-.kpi-meta { background: #163a7a; }
-.kpi-venda { background: #1e5eff; }
-.kpi-falta { background: #3b7ddd; }
-.kpi-estoque { background: #0d4fd6; }
+.kpi-meta { background: #0C263F; }
+.kpi-venda { background: #205789; }
+.kpi-falta { background: #19612B; }
+.kpi-estoque { background: #304A11; }
 
 .filter-bar {
   background: var(--white);
