@@ -66,18 +66,30 @@ function logScale(value, maxVal) {
   return (Math.log10(1 + v) / Math.log10(1 + m)) * 100;
 }
 
-function getBaseProducts() {
+/**
+ * Filtro central de produtos. Cada painel do dashboard usa esta mesma
+ * função, escolhendo quais eixos de filtro aplicar — assim toda regra
+ * de filtro vive num único lugar, em vez de repetida em cada painel.
+ *   marca:  respeita as marcas selecionadas no dropdown
+ *   dept:   respeita o departamento selecionado (clique na tabela de saúde)
+ *   status: respeita o status de estoque selecionado (clique nos chips)
+ */
+function filterProducts({ marca = true, dept = true, status = true } = {}) {
   let rows = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
+  if (marca && state.selectedMarcas.size > 0) {
     rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
   }
-  if (state.selectedDept) {
+  if (dept && state.selectedDept) {
     rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
   }
-  if (state.status && state.status !== "Todos") {
+  if (status && state.status && state.status !== "Todos") {
     rows = rows.filter((p) => p.status === state.status);
   }
   return rows;
+}
+
+function getBaseProducts() {
+  return filterProducts(); // marca + departamento + status, todos ativos
 }
 
 function classifySituacao(vendas_un, media_mensal_un) {
@@ -196,7 +208,7 @@ function renderDonut(vendasSummary, vendaAtual) {
   const totalPct = ordered.reduce((a, s) => a + s.pct, 0);
 
   const totalElem = document.getElementById("donut-total");
-  if (totalElem) totalElem.textContent = fmtInt(Math.round(vendaAtual));
+  if (totalElem) totalElem.textContent = fmtMoney(Math.round(vendaAtual));
 
   // viewBox 400x400 — donut bem maior
   const cx = 200, cy = 200, rOuter = 135, rInner = 82, rLabel = 168;
@@ -386,13 +398,7 @@ function renderPagination(totalRows, totalPages) {
 }
 
 function updateStatusCounts() {
-  let rows = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
-    rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
-  }
-  if (state.selectedDept) {
-    rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
-  }
+  const rows = filterProducts({ status: false }); // marca + departamento, sem status
   const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
   rows.forEach((p) => {
     if (counts[p.status] !== undefined) counts[p.status]++;
@@ -564,13 +570,9 @@ function setupTableControls() {
 
 /* ---------- Exportar ---------- */
 function getExportRows(topN, statusFilter) {
-  let rows = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
-    rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
-  }
-  if (state.selectedDept) {
-    rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
-  }
+  // marca + departamento vêm do filtro central; o status do export é
+  // escolhido no próprio modal (independente do chip ativo no site)
+  let rows = filterProducts({ status: false });
   if (statusFilter && statusFilter !== "Todos") {
     rows = rows.filter((p) => p.status === statusFilter);
   }
@@ -688,15 +690,10 @@ function setupExport() {
 
 function refreshAll() {
   const products = getBaseProducts();
-  let productsForHealth = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
-    productsForHealth = productsForHealth.filter((p) =>
-      state.selectedMarcas.has((p.marca || "").trim())
-    );
-  }
-  if (state.status && state.status !== "Todos") {
-    productsForHealth = productsForHealth.filter((p) => p.status === state.status);
-  }
+  // marca + status, mas SEM departamento — assim a tabela de saúde
+  // continua mostrando todos os departamentos (clicáveis) mesmo com
+  // um departamento já selecionado.
+  const productsForHealth = filterProducts({ dept: false });
 
   const kpis = computeKpis(products);
   const vendasSummary = computeVendasStatusSummary(products);
