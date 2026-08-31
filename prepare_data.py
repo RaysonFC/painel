@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Atualiza data.js a partir de Geral.xlsx (aba COMPARAT_FOOD).
-"""
+"""Atualiza data.js a partir de Geral.xlsx (aba COMPARAT_FOOD)."""
 import json
 import sys
 from datetime import datetime, timezone, timedelta
@@ -41,6 +39,7 @@ COLS = {
     "DTULENT": "data_ultima_entrada",
     "N_PEDIDO": "numero_pedido",
     "QTD_PEDIDA": "qtd_pedida",
+    "PREV_ENTREGA": "previsao_entrada",
 }
 
 
@@ -104,11 +103,14 @@ def clean_pedido(x):
         return ""
     try:
         f = float(x)
+        if f == 0:
+            return ""
         if f == int(f):
             return str(int(f))
         return str(f)
     except Exception:
-        return str(x).strip()
+        s = str(x).strip()
+        return "" if s in ("0", "0.0") else s
 
 
 def main():
@@ -150,6 +152,7 @@ def main():
 
     df["numero_pedido"] = df["numero_pedido"].apply(clean_pedido)
     df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
+    df["previsao_entrada"] = df["previsao_entrada"].apply(fmt_date)
     df["status"] = df.apply(classify_status_estoque, axis=1)
     df["situacao"] = [
         classify_situacao(v, m)
@@ -169,7 +172,7 @@ def main():
         "media_mensal_un", "giro_dia_un",
         "estoque_un", "estoque_cx", "dias_estoque_un", "atingimento_meta",
         "status", "status_vendas", "situacao", "pct_meta",
-        "data_ultima_entrada", "numero_pedido", "qtd_pedida",
+        "data_ultima_entrada", "numero_pedido", "qtd_pedida", "previsao_entrada",
     ]].to_dict(orient="records")
 
     venda_atual = round(float(df["faturamento"].sum()), 2)
@@ -242,7 +245,8 @@ def main():
         json.dump(output, f, ensure_ascii=False)
         f.write(";\n")
 
-    print(f"OK! {OUT_FILE.name} atualizado com {len(produtos)} produtos.")
+    com_pedido = sum(1 for p in produtos if p.get("numero_pedido"))
+    print(f"OK! {OUT_FILE.name} atualizado com {len(produtos)} produtos ({com_pedido} com nº pedido).")
     print(f"   Gerado em:  {generated_at}")
     print(f"   Venda atual: R$ {venda_atual:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     print(f"   Estoque UN:  {kpis['estoque_total_un']:,}".replace(",", "."))

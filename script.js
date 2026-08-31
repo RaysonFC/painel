@@ -457,7 +457,7 @@ function renderTable(baseProducts) {
         '</td><td class="num">' + fmtInt(p.vendas_m3_un) +
         '</td><td class="num">' + fmtInt(p.media_mensal_un) +
         '</td><td class="num">' + fmtMoney(p.faturamento) +
-        '</td><td><span class="vendas-badge vendas-' + sv + '">' +
+        '</td><td><span class="vendas-text vendas-' + sv + '">' +
         (VENDAS_LABELS[sv] || sv) + "</span></td></tr>"
       );
     })
@@ -620,7 +620,6 @@ function setupTableControls() {
     });
   }
 
-  // Status de estoque (filtro global) — chips na tabela ENTRADAS / PEDIDOS
   document.querySelectorAll("#entrada-status-filters .chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => b.classList.remove("active"));
@@ -720,21 +719,19 @@ function exportXls(rows) {
   // HTML table que o Excel abre como planilha
   let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
   html += "<tr><th>COD</th><th>Descrição</th><th>Departamento</th><th>Marca</th>" +
-    "<th>Vendas Atual UN</th><th>Vendas M-1 UN</th><th>Vendas M-2 UN</th><th>Vendas M-3 UN</th>" +
-    "<th>Média Mensal UN</th><th>Faturamento</th><th>Status Vendas</th></tr>";
+    "<th>Estoque UN</th><th>Dias Estoque</th><th>Vendas Atual UN</th>" +
+    "<th>Faturamento</th><th>Status</th></tr>";
   rows.forEach((p) => {
     html +=
       "<tr><td>" + (p.cod || "") +
       "</td><td>" + (p.descricao || "") +
       "</td><td>" + (p.departamento || "") +
       "</td><td>" + (p.marca || "") +
+      "</td><td>" + (p.estoque_un || 0) +
+      "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
       "</td><td>" + (p.vendas_un || 0) +
-      "</td><td>" + (p.vendas_m1_un || 0) +
-      "</td><td>" + (p.vendas_m2_un || 0) +
-      "</td><td>" + (p.vendas_m3_un || 0) +
-      "</td><td>" + (p.media_mensal_un || 0) +
       "</td><td>" + Number(p.faturamento || 0).toFixed(2) +
-      "</td><td>" + (VENDAS_LABELS[p.status_vendas] || p.status_vendas || "") +
+      "</td><td>" + (STATUS_LABELS[p.status] || p.status) +
       "</td></tr>";
   });
   html += "</table></body></html>";
@@ -783,12 +780,27 @@ function setupExport() {
 }
 
 
-/* ---------- Tabela ENTRADAS / PEDIDOS ---------- */
+function updateStatusCounts() {
+  const rows = filterProducts({ status: false, vendasStatus: false });
+  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  rows.forEach((p) => {
+    if (counts[p.status] !== undefined) counts[p.status]++;
+  });
+  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
+    const el = document.getElementById("count-" + st);
+    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
+  });
+}
+
+/* ---------- ENTRADAS / PEDIDOS (só com nº pedido) ---------- */
 const ENTRADA_PAGE_SIZE = 20;
 
 function getEntradaRows() {
-  // marca + dept + status (estoque global)
-  let rows = filterProducts({ vendasStatus: false });
+  // marca + dept + status; apenas com número de pedido preenchido
+  let rows = filterProducts({ vendasStatus: false }).filter((p) => {
+    const n = String(p.numero_pedido || "").trim();
+    return n !== "" && n !== "0";
+  });
   if (state.entradaSearch) {
     const q = state.entradaSearch.toLowerCase();
     rows = rows.filter(
@@ -798,7 +810,8 @@ function getEntradaRows() {
         (p.marca || "").toLowerCase().includes(q) ||
         (p.departamento || "").toLowerCase().includes(q) ||
         String(p.numero_pedido || "").toLowerCase().includes(q) ||
-        String(p.data_ultima_entrada || "").toLowerCase().includes(q)
+        String(p.data_ultima_entrada || "").toLowerCase().includes(q) ||
+        String(p.previsao_entrada || "").toLowerCase().includes(q)
     );
   }
   const key = state.entradaSortKey;
@@ -806,7 +819,7 @@ function getEntradaRows() {
   rows = [...rows].sort((a, b) => {
     let va = a[key] ?? "";
     let vb = b[key] ?? "";
-    if (key === "data_ultima_entrada") {
+    if (key === "data_ultima_entrada" || key === "previsao_entrada") {
       const parse = (s) => {
         if (!s) return 0;
         const m = String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -819,19 +832,6 @@ function getEntradaRows() {
     return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
   });
   return rows;
-}
-
-function updateStatusCounts() {
-  // contagens respeitam marca + departamento (sem status)
-  const rows = filterProducts({ status: false, vendasStatus: false });
-  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
-  rows.forEach((p) => {
-    if (counts[p.status] !== undefined) counts[p.status]++;
-  });
-  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
-    const el = document.getElementById("count-" + st);
-    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
-  });
 }
 
 function renderEntradaTable() {
@@ -854,6 +854,7 @@ function renderEntradaTable() {
         "</td><td>" + (p.marca || "") +
         "</td><td>" + (p.data_ultima_entrada || "—") +
         "</td><td>" + (p.numero_pedido || "—") +
+        "</td><td>" + (p.previsao_entrada || "—") +
         '</td><td class="num">' + (p.qtd_pedida ? fmtInt(p.qtd_pedida) : "—") +
         '</td><td><span class="status-badge status-' + p.status + '">' +
         (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
@@ -893,7 +894,7 @@ function setupEntradaTable() {
         state.entradaSortDir = state.entradaSortDir === "asc" ? "desc" : "asc";
       } else {
         state.entradaSortKey = key;
-        state.entradaSortDir = key === "data_ultima_entrada" ? "desc" : "asc";
+        state.entradaSortDir = (key === "data_ultima_entrada" || key === "previsao_entrada") ? "desc" : "asc";
       }
       state.entradaPage = 1;
       renderEntradaTable();

@@ -364,13 +364,18 @@ body {
 .leg-fat { background: var(--navy-light); }
 .leg-vend { background: var(--blue); }
 
+.panel-bars {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .cluster-bars {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 440px;
-  overflow-y: auto;
-  padding-right: 4px;
+  gap: 10px;
+  /* sem barra de rolagem — preenche o painel */
+  overflow: visible;
+  padding-right: 0;
 }
 .empty-bars {
   margin: 12px 0;
@@ -699,20 +704,16 @@ body {
 .btn-primary:hover { background: #1548d4; }
 
 
-/* Status de vendas na tabela PRODUTOS */
-.vendas-badge {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 11px;
+/* Status de vendas SEM fundo colorido (só texto) */
+.vendas-text {
+  font-size: 12px;
   font-weight: 700;
-  color: #fff;
-  display: inline-block;
   white-space: nowrap;
 }
-.vendas-Crescimento { background: #7cb342; }
-.vendas-Queda { background: #e04b3f; }
-.vendas-Estavel { background: #2a3d6b; }
-.vendas-Sem\ Dados { background: #6b7690; }
+.vendas-Crescimento { color: #5a8c2c; }
+.vendas-Queda { color: #c0392b; }
+.vendas-Estavel { color: #2a3d6b; }
+.vendas-Sem\ Dados { color: #6b7690; }
 
 .vendas-rules .rule-item strong { font-weight: 700; }
 .rule-hint {
@@ -721,10 +722,10 @@ body {
   font-weight: 600;
 }
 
-/* Tabela ENTRADAS / PEDIDOS */
+/* ENTRADAS / PEDIDOS */
 .panel-entrada { grid-column: 1 / -1; }
 .entrada-scroll { max-height: 480px; overflow: auto; }
-.entrada-table { min-width: 1100px; }
+.entrada-table { min-width: 1180px; }
 .entrada-table th[data-ekey] { cursor: pointer; }
 #search-entrada {
   padding: 8px 12px;
