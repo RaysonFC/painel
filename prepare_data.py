@@ -47,6 +47,9 @@ COLS = {
     "ESTOQUE CX": "estoque_cx",
     "DIAS ESTOQUE UN": "dias_estoque_un",
     "ATINGIMENTO META": "atingimento_meta",
+    "DTULENT": "data_ultima_entrada",
+    "N_PEDIDO": "numero_pedido",
+    "QTD_PEDIDA": "qtd_pedida",
 }
 
 
@@ -93,6 +96,18 @@ def classify_situacao(vendas_un, media_mensal_un):
     return "Abaixo da Meta"
 
 
+def fmt_date(val):
+    if pd.isna(val):
+        return ""
+    try:
+        ts = pd.to_datetime(val)
+        if pd.isna(ts):
+            return ""
+        return ts.strftime("%d/%m/%Y")
+    except Exception:
+        return str(val) if val is not None else ""
+
+
 def main():
     if not SRC.exists():
         print(f"ERRO: Arquivo não encontrado: {SRC}")
@@ -105,6 +120,7 @@ def main():
     except ValueError as e:
         print(f"ERRO ao ler a planilha: {e}")
         print("Verifique se a aba se chama COMPARAT_FOOD e se as colunas existem.")
+        print("Colunas esperadas:", ", ".join(COLS.keys()))
         sys.exit(1)
 
     df = df.rename(columns=COLS)
@@ -126,9 +142,25 @@ def main():
         "faturamento", "vendas_cx", "vendas_un", "vendas_m1_un",
         "vendas_m2_un", "vendas_m3_un", "media_mensal_un",
         "giro_dia_un", "giro_semana_un", "estoque_un", "estoque_cx",
-        "dias_estoque_un", "atingimento_meta",
+        "dias_estoque_un", "atingimento_meta", "qtd_pedida",
     ]:
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+
+    # Número do pedido: mantém string limpa (pode vir float do Excel)
+    def clean_pedido(x):
+        if pd.isna(x):
+            return ""
+        try:
+            f = float(x)
+            if f == int(f):
+                return str(int(f))
+            return str(f)
+        except Exception:
+            return str(x).strip()
+
+    df["numero_pedido"] = df["numero_pedido"].apply(clean_pedido)
+    df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
 
     df["status"] = df.apply(classify_status_estoque, axis=1)
     df["situacao"] = [
@@ -148,6 +180,7 @@ def main():
         "vendas_cx", "vendas_un", "media_mensal_un", "giro_dia_un",
         "estoque_un", "estoque_cx", "dias_estoque_un", "atingimento_meta",
         "status", "status_vendas", "situacao", "pct_meta",
+        "data_ultima_entrada", "numero_pedido", "qtd_pedida",
     ]].to_dict(orient="records")
 
     venda_atual = round(float(df["faturamento"].sum()), 2)

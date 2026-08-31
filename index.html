@@ -189,6 +189,45 @@
     <div class="pagination" id="pagination"></div>
   </section>
 
+
+  <section class="panel panel-table panel-entrada">
+    <div class="table-toolbar">
+      <h2>ENTRADAS / PEDIDOS</h2>
+      <div class="toolbar-controls">
+        <input type="search" id="search-entrada" placeholder="Buscar COD, produto, marca, depto ou pedido...">
+        <div class="status-filters" id="entrada-status-filters">
+          <button class="chip chip-all active" data-estatus="Todos">Todos <span class="chip-count" id="ecount-Todos"></span></button>
+          <button class="chip chip-ruptura" data-estatus="Ruptura">⚠️ Ruptura <span class="chip-count" id="ecount-Ruptura"></span></button>
+          <button class="chip chip-critico" data-estatus="Critico">🔴 Crítico <span class="chip-count" id="ecount-Critico"></span></button>
+          <button class="chip chip-ok" data-estatus="OK">🟢 OK <span class="chip-count" id="ecount-OK"></span></button>
+          <button class="chip chip-over" data-estatus="Over">🔵 Over <span class="chip-count" id="ecount-Over"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-scroll product-scroll entrada-scroll">
+      <table class="product-table entrada-table">
+        <thead>
+          <tr>
+            <th data-ekey="cod">COD</th>
+            <th data-ekey="descricao">Descrição</th>
+            <th data-ekey="estoque_un" class="num">Estoque UN</th>
+            <th data-ekey="dias_estoque_un" class="num">Dias Estoque</th>
+            <th data-ekey="departamento">Departamento</th>
+            <th data-ekey="marca">Marca</th>
+            <th data-ekey="data_ultima_entrada">Data Última Entrada</th>
+            <th data-ekey="numero_pedido">Nº Pedido</th>
+            <th data-ekey="qtd_pedida" class="num">Qtd. Pedida</th>
+            <th data-ekey="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="entrada-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="entrada-pagination"></div>
+  </section>
+
 </main>
 
 <!-- Modal exportar -->

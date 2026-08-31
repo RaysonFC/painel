@@ -41,6 +41,12 @@ let state = {
   selectedMarcas: new Set(),
   selectedDept: null,
   selectedVendasStatus: null,
+  // tabela ENTRADAS / PEDIDOS
+  entradaStatus: "Todos",
+  entradaSearch: "",
+  entradaSortKey: "data_ultima_entrada",
+  entradaSortDir: "desc",
+  entradaPage: 1,
 };
 
 const ALL_MARCAS = (() => {
@@ -777,6 +783,140 @@ function setupExport() {
   });
 }
 
+
+/* ---------- Tabela ENTRADAS / PEDIDOS ---------- */
+const ENTRADA_PAGE_SIZE = 20;
+
+function getEntradaRows() {
+  // respeita filtros globais de marca e departamento
+  let rows = filterProducts({ status: false, vendasStatus: false });
+  if (state.entradaStatus && state.entradaStatus !== "Todos") {
+    rows = rows.filter((p) => p.status === state.entradaStatus);
+  }
+  if (state.entradaSearch) {
+    const q = state.entradaSearch.toLowerCase();
+    rows = rows.filter(
+      (p) =>
+        String(p.cod || "").toLowerCase().includes(q) ||
+        (p.descricao || "").toLowerCase().includes(q) ||
+        (p.marca || "").toLowerCase().includes(q) ||
+        (p.departamento || "").toLowerCase().includes(q) ||
+        String(p.numero_pedido || "").toLowerCase().includes(q) ||
+        String(p.data_ultima_entrada || "").toLowerCase().includes(q)
+    );
+  }
+  const key = state.entradaSortKey;
+  const dir = state.entradaSortDir === "asc" ? 1 : -1;
+  rows = [...rows].sort((a, b) => {
+    let va = a[key] ?? "";
+    let vb = b[key] ?? "";
+    // datas dd/mm/yyyy → ordenar por timestamp
+    if (key === "data_ultima_entrada") {
+      const parse = (s) => {
+        if (!s) return 0;
+        const m = String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (!m) return 0;
+        return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+      };
+      va = parse(va);
+      vb = parse(vb);
+      return (va - vb) * dir;
+    }
+    if (typeof va === "string") return String(va).localeCompare(String(vb), "pt-BR") * dir;
+    return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
+  });
+  return rows;
+}
+
+function updateEntradaStatusCounts() {
+  const rows = filterProducts({ status: false, vendasStatus: false });
+  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  rows.forEach((p) => {
+    if (counts[p.status] !== undefined) counts[p.status]++;
+  });
+  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
+    const el = document.getElementById("ecount-" + st);
+    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
+  });
+}
+
+function renderEntradaTable() {
+  const tbody = document.getElementById("entrada-tbody");
+  if (!tbody) return;
+  const rows = getEntradaRows();
+  const totalPages = Math.max(1, Math.ceil(rows.length / ENTRADA_PAGE_SIZE));
+  state.entradaPage = Math.min(Math.max(1, state.entradaPage), totalPages);
+  const startIdx = (state.entradaPage - 1) * ENTRADA_PAGE_SIZE;
+  const pageRows = rows.slice(startIdx, startIdx + ENTRADA_PAGE_SIZE);
+
+  tbody.innerHTML = pageRows
+    .map(
+      (p) =>
+        "<tr><td>" + (p.cod || "") +
+        "</td><td>" + (p.descricao || "") +
+        '</td><td class="num">' + fmtInt(p.estoque_un) +
+        '</td><td class="num">' + Number(p.dias_estoque_un || 0).toFixed(1) +
+        "</td><td>" + (p.departamento || "") +
+        "</td><td>" + (p.marca || "") +
+        "</td><td>" + (p.data_ultima_entrada || "—") +
+        "</td><td>" + (p.numero_pedido || "—") +
+        '</td><td class="num">' + (p.qtd_pedida ? fmtInt(p.qtd_pedida) : "—") +
+        '</td><td><span class="status-badge status-' + p.status + '">' +
+        (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
+    )
+    .join("");
+
+  const el = document.getElementById("entrada-pagination");
+  if (el) {
+    el.innerHTML =
+      '<button id="entrada-prev" ' + (state.entradaPage <= 1 ? "disabled" : "") + ">‹ Anterior</button>" +
+      "<span>Página " + state.entradaPage + " de " + totalPages + " (" + fmtInt(rows.length) + " itens)</span>" +
+      '<button id="entrada-next" ' + (state.entradaPage >= totalPages ? "disabled" : "") + ">Próxima ›</button>";
+    document.getElementById("entrada-prev")?.addEventListener("click", () => {
+      state.entradaPage--;
+      renderEntradaTable();
+    });
+    document.getElementById("entrada-next")?.addEventListener("click", () => {
+      state.entradaPage++;
+      renderEntradaTable();
+    });
+  }
+  updateEntradaStatusCounts();
+}
+
+function setupEntradaTable() {
+  const search = document.getElementById("search-entrada");
+  if (search) {
+    search.addEventListener("input", (e) => {
+      state.entradaSearch = e.target.value;
+      state.entradaPage = 1;
+      renderEntradaTable();
+    });
+  }
+  document.querySelectorAll("#entrada-status-filters .chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.entradaStatus = btn.dataset.estatus;
+      state.entradaPage = 1;
+      renderEntradaTable();
+    });
+  });
+  document.querySelectorAll(".entrada-table th[data-ekey]").forEach((th) => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.ekey;
+      if (state.entradaSortKey === key) {
+        state.entradaSortDir = state.entradaSortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.entradaSortKey = key;
+        state.entradaSortDir = key === "data_ultima_entrada" ? "desc" : "asc";
+      }
+      state.entradaPage = 1;
+      renderEntradaTable();
+    });
+  });
+}
+
 function refreshAll() {
   const products = getBaseProducts();
   // marca + status(estoque) + status_vendas, mas SEM departamento — assim a
@@ -800,6 +940,7 @@ function refreshAll() {
   renderTable(products);
   updateStatusCounts();
   updateVendasFilterUI();
+  renderEntradaTable();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -810,5 +951,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupMarcaDropdown();
   setupTableControls();
   setupExport();
+  setupEntradaTable();
   refreshAll();
 });
