@@ -13,6 +13,7 @@ Requisitos: pip install pandas openpyxl
 """
 import json
 import sys
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 try:
@@ -202,7 +203,11 @@ def main():
     ]
     dept_summary = dept_summary.to_dict(orient="records")
 
+    br_tz = timezone(timedelta(hours=-3))
+    generated_at = datetime.now(br_tz).strftime("%d/%m/%Y %H:%M:%S")
+
     output = {
+        "generated_at": generated_at,
         "kpis": kpis,
         "status_summary": status_summary,
         "vendas_status_summary": vendas_status_summary,
@@ -216,6 +221,7 @@ def main():
         f.write(";\n")
 
     print(f"OK! {OUT_FILE.name} atualizado com {len(produtos)} produtos.")
+    print(f"   Gerado em:  {generated_at}")
     print(f"   Venda atual: R$ {venda_atual:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     print(f"   Estoque UN:  {kpis['estoque_total_un']:,}".replace(",", "."))
     print("Recarregue o site no navegador (Ctrl+F5).")
