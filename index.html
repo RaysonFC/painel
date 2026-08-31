@@ -6,9 +6,6 @@
   <title>Food Service | Controle de Estoque</title>
   <link rel="stylesheet" href="style.css">
   <script>
-    // Cache-busting: obriga o navegador a sempre baixar a versão mais
-    // recente de data.js e script.js, em vez de usar uma cópia antiga
-    // guardada em cache (era a causa do site "não atualizar").
     (function () {
       var v = Date.now();
       document.write('<script src="data.js?v=' + v + '"><\/script>');
@@ -21,7 +18,10 @@
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark">FS</span>
-    <h1>FOOD SERVICE <span class="accent">| ESTOQUE</span></h1>
+    <div class="brand-text">
+      <h1>FOOD SERVICE <span class="accent">| ESTOQUE</span></h1>
+      <span class="data-updated" id="data-updated">Atualizado em: –</span>
+    </div>
   </div>
   <div class="kpi-row">
     <div class="kpi kpi-meta">
@@ -83,14 +83,15 @@
 
   <section class="panel panel-donut">
     <h2>VENDAS ATUAL UN</h2>
-    <div class="donut-wrap">
-      <svg id="donut" viewBox="0 0 240 240"></svg>
+    <div class="donut-wrap donut-lg">
+      <svg id="donut" viewBox="0 0 480 480"></svg>
       <div class="donut-center">
         <span id="donut-total">0</span>
         <small>Faturamento Total</small>
       </div>
     </div>
     <ul class="legend" id="donut-legend"></ul>
+    <button type="button" id="clear-vendas-filter" class="clear-dept-btn clear-vendas-btn" hidden>✕ Limpar filtro de vendas</button>
   </section>
 
   <section class="panel panel-bars">
@@ -104,6 +105,19 @@
 
   <section class="panel panel-gauge">
     <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+
+    <div class="meta-gauge-wrap">
+      <svg id="meta-gauge" viewBox="0 0 200 115"></svg>
+      <div class="meta-gauge-center">
+        <span id="meta-gauge-pct">0%</span>
+        <small>da Meta Mensal atingida</small>
+      </div>
+    </div>
+    <div class="meta-gauge-legend">
+      <span>Meta: <strong id="meta-gauge-meta">R$ 0</strong></span>
+      <span>Atual: <strong id="meta-gauge-atual">R$ 0</strong></span>
+    </div>
+
     <p class="click-hint">Clique em um departamento para filtrar o dashboard</p>
     <div class="table-scroll dept-scroll">
       <table class="status-table dept-health-table" id="dept-health-table">
@@ -127,18 +141,25 @@
     <div class="table-toolbar">
       <h2>PRODUTOS</h2>
       <div class="toolbar-controls">
-        <input type="search" id="search-box" placeholder="Buscar produto, marca ou depto...">
+        <button type="button" class="btn-export" id="btn-export">⬇ Exportar</button>
+        <input type="search" id="search-box" placeholder="Buscar COD, produto, marca ou depto...">
+        <div class="top-filters" id="top-filters">
+          <span class="top-label">Top faturamento:</span>
+          <button type="button" class="chip-top active" data-top="0">Todos</button>
+          <button type="button" class="chip-top" data-top="20">Top 20</button>
+          <button type="button" class="chip-top" data-top="50">Top 50</button>
+          <button type="button" class="chip-top" data-top="100">Top 100</button>
+        </div>
         <div class="status-filters" id="status-filters">
-          <button class="chip chip-all active" data-status="Todos">Todos</button>
-          <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura</button>
-          <button class="chip chip-critico" data-status="Critico">🔴 Crítico</button>
-          <button class="chip chip-ok" data-status="OK">🟢 OK</button>
-          <button class="chip chip-over" data-status="Over">🔵 Over</button>
+          <button class="chip chip-all active" data-status="Todos">Todos <span class="chip-count" id="count-Todos"></span></button>
+          <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura <span class="chip-count" id="count-Ruptura"></span></button>
+          <button class="chip chip-critico" data-status="Critico">🔴 Crítico <span class="chip-count" id="count-Critico"></span></button>
+          <button class="chip chip-ok" data-status="OK">🟢 OK <span class="chip-count" id="count-OK"></span></button>
+          <button class="chip chip-over" data-status="Over">🔵 Over <span class="chip-count" id="count-Over"></span></button>
         </div>
       </div>
     </div>
 
-    <!-- Regras de status -->
     <div class="status-rules">
       <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0</span>
       <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
@@ -169,5 +190,46 @@
   </section>
 
 </main>
+
+<!-- Modal exportar -->
+<div class="modal-overlay" id="export-modal" hidden>
+  <div class="modal" role="dialog" aria-labelledby="export-title">
+    <div class="modal-header">
+      <h3 id="export-title">Exportar produtos</h3>
+      <button type="button" class="modal-close" id="export-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Sempre ordenado por faturamento (maior → menor). Usa os filtros de marca/departamento ativos no site.</p>
+
+      <label class="modal-label">Quantidade (Top)</label>
+      <div class="modal-options" id="export-top">
+        <label><input type="radio" name="export-top" value="20" checked> Top 20</label>
+        <label><input type="radio" name="export-top" value="50"> Top 50</label>
+        <label><input type="radio" name="export-top" value="100"> Top 100</label>
+        <label><input type="radio" name="export-top" value="0"> Todos</label>
+      </div>
+
+      <label class="modal-label">Status</label>
+      <div class="modal-options" id="export-status">
+        <label><input type="radio" name="export-status" value="Todos" checked> Todos</label>
+        <label><input type="radio" name="export-status" value="Ruptura"> ⚠️ Ruptura</label>
+        <label><input type="radio" name="export-status" value="Critico"> 🔴 Crítico</label>
+        <label><input type="radio" name="export-status" value="OK"> 🟢 OK</label>
+        <label><input type="radio" name="export-status" value="Over"> 🔵 Over</label>
+      </div>
+
+      <label class="modal-label">Formato</label>
+      <div class="modal-options" id="export-format">
+        <label><input type="radio" name="export-format" value="csv" checked> CSV (Excel)</label>
+        <label><input type="radio" name="export-format" value="xlsx"> Excel (.xls)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="export-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="export-confirm">Baixar arquivo</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

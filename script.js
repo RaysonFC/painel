@@ -12,7 +12,6 @@ const VENDAS_LABELS = {
   Estavel: "➡️ Estável",
 };
 
-const STATUS_ORDER = ["Ruptura", "Critico", "OK", "Over"];
 const STATUS_LABELS = { Ruptura: "Ruptura", Critico: "Crítico", OK: "OK", Over: "Over" };
 
 const SITUACAO_LABELS = {
@@ -38,8 +37,10 @@ let state = {
   sortKey: "faturamento",
   sortDir: "desc",
   page: 1,
+  topN: 0,
   selectedMarcas: new Set(),
   selectedDept: null,
+  selectedVendasStatus: null,
 };
 
 const ALL_MARCAS = (() => {
@@ -66,15 +67,33 @@ function logScale(value, maxVal) {
   return (Math.log10(1 + v) / Math.log10(1 + m)) * 100;
 }
 
-function getBaseProducts() {
+/**
+ * Filtro central de produtos. Cada painel do dashboard usa esta mesma
+ * função, escolhendo quais eixos de filtro aplicar — assim toda regra
+ * de filtro vive num único lugar, em vez de repetida em cada painel.
+ *   marca:  respeita as marcas selecionadas no dropdown
+ *   dept:   respeita o departamento selecionado (clique na tabela de saúde)
+ *   status: respeita o status de estoque selecionado (clique nos chips)
+ */
+function filterProducts({ marca = true, dept = true, status = true, vendasStatus = true } = {}) {
   let rows = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
+  if (marca && state.selectedMarcas.size > 0) {
     rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
   }
-  if (state.selectedDept) {
+  if (dept && state.selectedDept) {
     rows = rows.filter((p) => (p.departamento || "") === state.selectedDept);
   }
+  if (status && state.status && state.status !== "Todos") {
+    rows = rows.filter((p) => p.status === state.status);
+  }
+  if (vendasStatus && state.selectedVendasStatus) {
+    rows = rows.filter((p) => (p.status_vendas || "Sem Dados") === state.selectedVendasStatus);
+  }
   return rows;
+}
+
+function getBaseProducts() {
+  return filterProducts(); // marca + departamento + status, todos ativos
 }
 
 function classifySituacao(vendas_un, media_mensal_un) {
@@ -121,7 +140,6 @@ function computeDeptBars(products) {
     map[d].faturamento += Number(p.faturamento) || 0;
     map[d].vendas_un += Number(p.vendas_un) || 0;
   });
-  // trava: só aparece se faturamento > 0 E vendas_un > 0
   return Object.values(map)
     .filter((d) => d.faturamento > 0 && d.vendas_un > 0)
     .sort((a, b) => b.faturamento - a.faturamento);
@@ -147,13 +165,20 @@ function computeDeptHealth(productsForHealth) {
     .sort((a, b) => b.faturamento - a.faturamento);
 }
 
+function renderUpdatedAt() {
+  const el = document.getElementById("data-updated");
+  if (!el) return;
+  const ts = data.generated_at || "—";
+  el.textContent = "Dados atualizados em: " + ts;
+}
+
 function renderKpis(kpis) {
   document.getElementById("kpi-meta-mensal").textContent = fmtMoney(kpis.meta_mensal);
   document.getElementById("kpi-venda-atual").textContent = fmtMoney(kpis.venda_atual);
   const elFalta = document.getElementById("kpi-falta-meta");
   if (elFalta) {
     elFalta.textContent = fmtMoney(kpis.falta_meta);
-    elFalta.style.color = kpis.falta_meta < 0 ? "#e04b3f" : "";
+    elFalta.style.color = kpis.falta_meta < 0 ? "#ffb4b0" : "";
   }
   document.getElementById("kpi-estoque-un").textContent = fmtInt(kpis.estoque_total_un);
 }
@@ -163,19 +188,25 @@ function polarToCartesian(cx, cy, r, angleDeg) {
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 }
 
-function donutSlice(cx, cy, rOuter, rInner, startAngle, endAngle, color) {
+function donutSliceD(cx, cy, rOuter, rInner, startAngle, endAngle) {
   const sa = startAngle + 90, ea = endAngle + 90;
   const p1 = polarToCartesian(cx, cy, rOuter, sa);
   const p2 = polarToCartesian(cx, cy, rOuter, ea);
   const p3 = polarToCartesian(cx, cy, rInner, ea);
   const p4 = polarToCartesian(cx, cy, rInner, sa);
   const largeArc = ea - sa > 180 ? 1 : 0;
-  const d =
+  return (
     "M " + p1.x + " " + p1.y +
     " A " + rOuter + " " + rOuter + " 0 " + largeArc + " 1 " + p2.x + " " + p2.y +
     " L " + p3.x + " " + p3.y +
-    " A " + rInner + " " + rInner + " 0 " + largeArc + " 0 " + p4.x + " " + p4.y + " Z";
-  return '<path d="' + d + '" fill="' + color + '"></path>';
+    " A " + rInner + " " + rInner + " 0 " + largeArc + " 0 " + p4.x + " " + p4.y + " Z"
+  );
+}
+
+function toggleVendasStatus(st) {
+  state.selectedVendasStatus = state.selectedVendasStatus === st ? null : st;
+  state.page = 1;
+  refreshAll();
 }
 
 function renderDonut(vendasSummary, vendaAtual) {
@@ -187,19 +218,29 @@ function renderDonut(vendasSummary, vendaAtual) {
   const totalPct = ordered.reduce((a, s) => a + s.pct, 0);
 
   const totalElem = document.getElementById("donut-total");
-  if (totalElem) totalElem.textContent = fmtInt(Math.round(vendaAtual));
+  if (totalElem) totalElem.textContent = fmtMoney(Math.round(vendaAtual));
 
-  const cx = 120, cy = 120, rOuter = 85, rInner = 52, rLabel = 102;
+  // viewBox 480x480 — donut grande, com miolo generoso pra caber o valor total
+  const cx = 240, cy = 240, rOuter = 165, rInner = 108, rLabel = 195;
   let angleStart = -90;
   const paths = [];
   const labels = [];
+  const activeSt = state.selectedVendasStatus;
 
   ordered.forEach((s) => {
     const frac = totalPct ? s.pct / totalPct : 0;
     const angleEnd = angleStart + frac * 360;
     const mid = (angleStart + angleEnd) / 2;
-    paths.push(donutSlice(cx, cy, rOuter, rInner, angleStart, angleEnd, VENDAS_COLORS[s.status_vendas]));
-    if (s.pct >= 1) {
+    const isActive = activeSt === s.status_vendas;
+    const dimmed = !!activeSt && !isActive;
+    const d = donutSliceD(cx, cy, rOuter, rInner, angleStart, angleEnd);
+    paths.push(
+      '<path d="' + d + '" fill="' + VENDAS_COLORS[s.status_vendas] + '"' +
+      ' opacity="' + (dimmed ? 0.3 : 1) + '"' +
+      ' stroke="' + (isActive ? "#0d1b3a" : "none") + '" stroke-width="' + (isActive ? 3 : 0) + '"' +
+      ' class="donut-slice" data-vstatus="' + s.status_vendas + '"></path>'
+    );
+    if (s.pct >= 2) {
       const pos = polarToCartesian(cx, cy, rLabel, mid + 90);
       labels.push(
         '<text x="' + pos.x.toFixed(1) + '" y="' + pos.y.toFixed(1) +
@@ -214,15 +255,75 @@ function renderDonut(vendasSummary, vendaAtual) {
 
   if (legend) {
     legend.innerHTML = ordered
-      .map(
-        (s) =>
-          '<li><span class="dot" style="background:' + VENDAS_COLORS[s.status_vendas] +
-          '"></span><span class="lg-label">' + VENDAS_LABELS[s.status_vendas] +
-          '</span><span class="lg-value">' + Number(s.pct).toFixed(1) + "% · " +
+      .map((s) => {
+        const isActive = activeSt === s.status_vendas;
+        return (
+          '<li class="legend-item' + (isActive ? " active" : "") + '" data-vstatus="' + s.status_vendas + '">' +
+          '<span class="dot" style="background:' + VENDAS_COLORS[s.status_vendas] + '"></span>' +
+          '<span class="lg-label">' + VENDAS_LABELS[s.status_vendas] + '</span>' +
+          '<span class="lg-value">' + Number(s.pct).toFixed(1) + "% · " +
           fmtInt(Math.round(s.vendas_un)) + " un</span></li>"
-      )
+        );
+      })
       .join("");
   }
+
+  svg?.querySelectorAll(".donut-slice").forEach((el) => {
+    el.addEventListener("click", () => toggleVendasStatus(el.getAttribute("data-vstatus")));
+  });
+  legend?.querySelectorAll(".legend-item").forEach((el) => {
+    el.addEventListener("click", () => toggleVendasStatus(el.getAttribute("data-vstatus")));
+  });
+}
+
+function updateVendasFilterUI() {
+  const btn = document.getElementById("clear-vendas-filter");
+  if (!btn) return;
+  if (state.selectedVendasStatus) {
+    btn.hidden = false;
+    btn.textContent = "✕ Limpar: " + (VENDAS_LABELS[state.selectedVendasStatus] || state.selectedVendasStatus);
+  } else {
+    btn.hidden = true;
+  }
+}
+
+function arcPath(cx, cy, r, a1, a2) {
+  const toRad = (a) => (a * Math.PI) / 180;
+  const p1 = { x: cx + r * Math.cos(toRad(a1)), y: cy + r * Math.sin(toRad(a1)) };
+  const p2 = { x: cx + r * Math.cos(toRad(a2)), y: cy + r * Math.sin(toRad(a2)) };
+  const largeArc = a2 - a1 > 180 ? 1 : 0;
+  return "M " + p1.x + " " + p1.y + " A " + r + " " + r + " 0 " + largeArc + " 1 " + p2.x + " " + p2.y;
+}
+
+function renderMetaGauge(kpis) {
+  const meta = Number(kpis.meta_mensal) || 0;
+  const atual = Number(kpis.venda_atual) || 0;
+  const ratio = meta > 0 ? atual / meta : 0;
+  const cappedRatio = Math.max(0, Math.min(1, ratio));
+
+  const svg = document.getElementById("meta-gauge");
+  if (svg) {
+    const cx = 100, cy = 100, r = 82;
+    const startA = -180, endA = 0;
+    const valueA = startA + cappedRatio * 180;
+    const bg = arcPath(cx, cy, r, startA, endA);
+    const fg = arcPath(cx, cy, r, startA, valueA);
+    const color =
+      ratio >= 1 ? "#7cb342" : ratio >= 0.7 ? "#3b7ddd" : ratio >= 0.4 ? "#f0973d" : "#e04b3f";
+    svg.innerHTML =
+      '<path d="' + bg + '" stroke="#e1e5ee" stroke-width="16" fill="none" stroke-linecap="round"/>' +
+      '<path d="' + fg + '" stroke="' + color + '" stroke-width="16" fill="none" stroke-linecap="round"/>';
+  }
+
+  const pctEl = document.getElementById("meta-gauge-pct");
+  if (pctEl) {
+    pctEl.textContent =
+      (ratio * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  }
+  const metaEl = document.getElementById("meta-gauge-meta");
+  if (metaEl) metaEl.textContent = fmtMoney(meta);
+  const atualEl = document.getElementById("meta-gauge-atual");
+  if (atualEl) atualEl.textContent = fmtMoney(atual);
 }
 
 function renderDeptBars(deptBars) {
@@ -305,7 +406,6 @@ function updateDeptFilterUI() {
 
 function getFilteredProducts(baseProducts) {
   let rows = baseProducts;
-  if (state.status !== "Todos") rows = rows.filter((p) => p.status === state.status);
   if (state.search) {
     const q = state.search.toLowerCase();
     rows = rows.filter(
@@ -315,6 +415,10 @@ function getFilteredProducts(baseProducts) {
         (p.marca || "").toLowerCase().includes(q) ||
         (p.departamento || "").toLowerCase().includes(q)
     );
+  }
+  if (state.topN > 0) {
+    rows = [...rows].sort((a, b) => (Number(b.faturamento) || 0) - (Number(a.faturamento) || 0));
+    rows = rows.slice(0, state.topN);
   }
   const key = state.sortKey;
   const dir = state.sortDir === "asc" ? 1 : -1;
@@ -369,6 +473,18 @@ function renderPagination(totalRows, totalPages) {
   document.getElementById("next-page")?.addEventListener("click", () => {
     state.page++;
     refreshAll();
+  });
+}
+
+function updateStatusCounts() {
+  const rows = filterProducts({ status: false }); // marca + departamento, sem status
+  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  rows.forEach((p) => {
+    if (counts[p.status] !== undefined) counts[p.status]++;
+  });
+  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
+    const el = document.getElementById("count-" + st);
+    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
   });
 }
 
@@ -481,6 +597,16 @@ function setupMarcaDropdown() {
     });
   }
 
+  const clearVendas = document.getElementById("clear-vendas-filter");
+  if (clearVendas) {
+    clearVendas.addEventListener("click", () => {
+      state.selectedVendasStatus = null;
+      state.page = 1;
+      updateVendasFilterUI();
+      refreshAll();
+    });
+  }
+
   renderMarcaList("");
   updateMarcaToggleText();
   updateDeptFilterUI();
@@ -506,6 +632,16 @@ function setupTableControls() {
     });
   });
 
+  document.querySelectorAll(".top-filters .chip-top").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".top-filters .chip-top").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.topN = Number(btn.dataset.top) || 0;
+      state.page = 1;
+      refreshAll();
+    });
+  });
+
   document.querySelectorAll(".product-table th[data-key]").forEach((th) => {
     th.addEventListener("click", () => {
       const key = th.dataset.key;
@@ -521,25 +657,149 @@ function setupTableControls() {
   });
 }
 
+/* ---------- Exportar ---------- */
+function getExportRows(topN, statusFilter) {
+  // marca + departamento vêm do filtro central; o status do export é
+  // escolhido no próprio modal (independente do chip ativo no site)
+  let rows = filterProducts({ status: false });
+  if (statusFilter && statusFilter !== "Todos") {
+    rows = rows.filter((p) => p.status === statusFilter);
+  }
+  rows = [...rows].sort((a, b) => (Number(b.faturamento) || 0) - (Number(a.faturamento) || 0));
+  if (topN > 0) rows = rows.slice(0, topN);
+  return rows;
+}
+
+function escapeCsv(v) {
+  const s = String(v ?? "");
+  if (/[;",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function downloadBlob(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCsv(rows) {
+  const headers = [
+    "COD", "Descrição", "Departamento", "Marca", "Estoque UN",
+    "Dias Estoque", "Vendas Atual UN", "Faturamento", "Status",
+  ];
+  const lines = [headers.join(";")];
+  rows.forEach((p) => {
+    lines.push([
+      escapeCsv(p.cod),
+      escapeCsv(p.descricao),
+      escapeCsv(p.departamento),
+      escapeCsv(p.marca),
+      escapeCsv(p.estoque_un),
+      escapeCsv(Number(p.dias_estoque_un || 0).toFixed(1)),
+      escapeCsv(p.vendas_un),
+      escapeCsv(Number(p.faturamento || 0).toFixed(2)),
+      escapeCsv(STATUS_LABELS[p.status] || p.status),
+    ].join(";"));
+  });
+  // BOM para Excel abrir UTF-8 corretamente
+  const content = "\uFEFF" + lines.join("\n");
+  const stamp = (data.generated_at || "").replace(/[/: ]/g, "-") || "export";
+  downloadBlob("produtos_" + stamp + ".csv", content, "text/csv;charset=utf-8");
+}
+
+function exportXls(rows) {
+  // HTML table que o Excel abre como planilha
+  let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
+  html += "<tr><th>COD</th><th>Descrição</th><th>Departamento</th><th>Marca</th>" +
+    "<th>Estoque UN</th><th>Dias Estoque</th><th>Vendas Atual UN</th>" +
+    "<th>Faturamento</th><th>Status</th></tr>";
+  rows.forEach((p) => {
+    html +=
+      "<tr><td>" + (p.cod || "") +
+      "</td><td>" + (p.descricao || "") +
+      "</td><td>" + (p.departamento || "") +
+      "</td><td>" + (p.marca || "") +
+      "</td><td>" + (p.estoque_un || 0) +
+      "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
+      "</td><td>" + (p.vendas_un || 0) +
+      "</td><td>" + Number(p.faturamento || 0).toFixed(2) +
+      "</td><td>" + (STATUS_LABELS[p.status] || p.status) +
+      "</td></tr>";
+  });
+  html += "</table></body></html>";
+  const stamp = (data.generated_at || "").replace(/[/: ]/g, "-") || "export";
+  downloadBlob(
+    "produtos_" + stamp + ".xls",
+    html,
+    "application/vnd.ms-excel;charset=utf-8"
+  );
+}
+
+function setupExport() {
+  const modal = document.getElementById("export-modal");
+  const openBtn = document.getElementById("btn-export");
+  const closeBtn = document.getElementById("export-close");
+  const cancelBtn = document.getElementById("export-cancel");
+  const confirmBtn = document.getElementById("export-confirm");
+  if (!modal || !openBtn) return;
+
+  const open = () => { modal.hidden = false; };
+  const close = () => { modal.hidden = true; };
+
+  openBtn.addEventListener("click", open);
+  closeBtn?.addEventListener("click", close);
+  cancelBtn?.addEventListener("click", close);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
+
+  confirmBtn?.addEventListener("click", () => {
+    const topEl = document.querySelector('input[name="export-top"]:checked');
+    const stEl = document.querySelector('input[name="export-status"]:checked');
+    const fmtEl = document.querySelector('input[name="export-format"]:checked');
+    const topN = Number(topEl?.value || 0);
+    const status = stEl?.value || "Todos";
+    const format = fmtEl?.value || "csv";
+    const rows = getExportRows(topN, status);
+    if (!rows.length) {
+      alert("Nenhum produto para exportar com esses filtros.");
+      return;
+    }
+    if (format === "xlsx") exportXls(rows);
+    else exportCsv(rows);
+    close();
+  });
+}
+
 function refreshAll() {
   const products = getBaseProducts();
-  let productsForHealth = data.produtos || [];
-  if (state.selectedMarcas.size > 0) {
-    productsForHealth = productsForHealth.filter((p) =>
-      state.selectedMarcas.has((p.marca || "").trim())
-    );
-  }
+  // marca + status(estoque) + status_vendas, mas SEM departamento — assim a
+  // tabela de saúde continua mostrando todos os departamentos (clicáveis).
+  const productsForHealth = filterProducts({ dept: false });
+  // marca + dept + status(estoque), mas SEM status_vendas — assim o donut
+  // sempre mostra as 3 fatias completas, mesmo com uma delas selecionada.
+  const productsForDonut = filterProducts({ vendasStatus: false });
 
   const kpis = computeKpis(products);
-  const vendasSummary = computeVendasStatusSummary(products);
+  const vendasSummary = computeVendasStatusSummary(productsForDonut);
   const deptBars = computeDeptBars(products);
   const deptHealth = computeDeptHealth(productsForHealth);
 
+  renderUpdatedAt();
   renderKpis(kpis);
   renderDonut(vendasSummary, kpis.venda_atual);
+  renderMetaGauge(kpis);
   renderDeptBars(deptBars);
   renderDeptHealth(deptHealth);
   renderTable(products);
+  updateStatusCounts();
+  updateVendasFilterUI();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -549,5 +809,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   setupMarcaDropdown();
   setupTableControls();
+  setupExport();
   refreshAll();
 });
