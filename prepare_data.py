@@ -2,14 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Atualiza data.js a partir de Geral.xlsx (aba COMPARAT_FOOD).
-
-Como usar:
-  1. Substitua o arquivo Geral.xlsx por uma versão atualizada
-     (mesma pasta, mesma estrutura de colunas).
-  2. Rode:  python prepare_data.py
-  3. Recarregue o site (index.html) no navegador (Ctrl+F5).
-
-Requisitos: pip install pandas openpyxl
 """
 import json
 import sys
@@ -22,12 +14,11 @@ except ImportError:
     print("ERRO: pandas não instalado. Rode: pip install pandas openpyxl")
     sys.exit(1)
 
-# --- Configuração ---
 BASE_DIR = Path(__file__).resolve().parent
 SRC = BASE_DIR / "Geral.xlsx"
 SHEET = "COMPARAT_FOOD"
 OUT_FILE = BASE_DIR / "data.js"
-META_MENSAL = 644633  # ajuste a meta mensal aqui se necessário
+META_MENSAL = 644633
 
 COLS = {
     "COD": "cod",
@@ -108,10 +99,21 @@ def fmt_date(val):
         return str(val) if val is not None else ""
 
 
+def clean_pedido(x):
+    if pd.isna(x):
+        return ""
+    try:
+        f = float(x)
+        if f == int(f):
+            return str(int(f))
+        return str(f)
+    except Exception:
+        return str(x).strip()
+
+
 def main():
     if not SRC.exists():
         print(f"ERRO: Arquivo não encontrado: {SRC}")
-        print("Coloque Geral.xlsx na mesma pasta deste script.")
         sys.exit(1)
 
     print(f"Lendo: {SRC.name}  |  aba: {SHEET}")
@@ -119,7 +121,6 @@ def main():
         df = pd.read_excel(SRC, sheet_name=SHEET, usecols=list(COLS.keys()))
     except ValueError as e:
         print(f"ERRO ao ler a planilha: {e}")
-        print("Verifique se a aba se chama COMPARAT_FOOD e se as colunas existem.")
         print("Colunas esperadas:", ", ".join(COLS.keys()))
         sys.exit(1)
 
@@ -147,21 +148,8 @@ def main():
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
 
-    # Número do pedido: mantém string limpa (pode vir float do Excel)
-    def clean_pedido(x):
-        if pd.isna(x):
-            return ""
-        try:
-            f = float(x)
-            if f == int(f):
-                return str(int(f))
-            return str(f)
-        except Exception:
-            return str(x).strip()
-
     df["numero_pedido"] = df["numero_pedido"].apply(clean_pedido)
     df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
-
     df["status"] = df.apply(classify_status_estoque, axis=1)
     df["situacao"] = [
         classify_situacao(v, m)
@@ -177,7 +165,8 @@ def main():
 
     produtos = df[[
         "cod", "descricao", "marca", "departamento", "faturamento",
-        "vendas_cx", "vendas_un", "media_mensal_un", "giro_dia_un",
+        "vendas_cx", "vendas_un", "vendas_m1_un", "vendas_m2_un", "vendas_m3_un",
+        "media_mensal_un", "giro_dia_un",
         "estoque_un", "estoque_cx", "dias_estoque_un", "atingimento_meta",
         "status", "status_vendas", "situacao", "pct_meta",
         "data_ultima_entrada", "numero_pedido", "qtd_pedida",
@@ -257,7 +246,6 @@ def main():
     print(f"   Gerado em:  {generated_at}")
     print(f"   Venda atual: R$ {venda_atual:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     print(f"   Estoque UN:  {kpis['estoque_total_un']:,}".replace(",", "."))
-    print("Recarregue o site no navegador (Ctrl+F5).")
 
 
 if __name__ == "__main__":

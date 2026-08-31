@@ -41,8 +41,6 @@ let state = {
   selectedMarcas: new Set(),
   selectedDept: null,
   selectedVendasStatus: null,
-  // tabela ENTRADAS / PEDIDOS
-  entradaStatus: "Todos",
   entradaSearch: "",
   entradaSortKey: "data_ultima_entrada",
   entradaSortDir: "desc",
@@ -446,19 +444,23 @@ function renderTable(baseProducts) {
   const pageRows = rows.slice(startIdx, startIdx + PAGE_SIZE);
 
   tbody.innerHTML = pageRows
-    .map(
-      (p) =>
+    .map((p) => {
+      const sv = p.status_vendas || "Estavel";
+      return (
         "<tr><td>" + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
         "</td><td>" + (p.departamento || "") +
         "</td><td>" + (p.marca || "") +
-        '</td><td class="num">' + fmtInt(p.estoque_un) +
-        '</td><td class="num">' + Number(p.dias_estoque_un || 0).toFixed(1) +
         '</td><td class="num">' + fmtInt(p.vendas_un) +
+        '</td><td class="num">' + fmtInt(p.vendas_m1_un) +
+        '</td><td class="num">' + fmtInt(p.vendas_m2_un) +
+        '</td><td class="num">' + fmtInt(p.vendas_m3_un) +
+        '</td><td class="num">' + fmtInt(p.media_mensal_un) +
         '</td><td class="num">' + fmtMoney(p.faturamento) +
-        '</td><td><span class="status-badge status-' + p.status + '">' +
-        (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
-    )
+        '</td><td><span class="vendas-badge vendas-' + sv + '">' +
+        (VENDAS_LABELS[sv] || sv) + "</span></td></tr>"
+      );
+    })
     .join("");
 
   renderPagination(rows.length, totalPages);
@@ -482,17 +484,7 @@ function renderPagination(totalRows, totalPages) {
   });
 }
 
-function updateStatusCounts() {
-  const rows = filterProducts({ status: false }); // marca + departamento, sem status
-  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
-  rows.forEach((p) => {
-    if (counts[p.status] !== undefined) counts[p.status]++;
-  });
-  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
-    const el = document.getElementById("count-" + st);
-    if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
-  });
-}
+
 
 function updateMarcaToggleText() {
   const el = document.getElementById("marca-toggle-text");
@@ -628,12 +620,14 @@ function setupTableControls() {
     });
   }
 
-  document.querySelectorAll(".status-filters .chip").forEach((btn) => {
+  // Status de estoque (filtro global) — chips na tabela ENTRADAS / PEDIDOS
+  document.querySelectorAll("#entrada-status-filters .chip").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".status-filters .chip").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.status = btn.dataset.status;
       state.page = 1;
+      state.entradaPage = 1;
       refreshAll();
     });
   });
@@ -696,8 +690,9 @@ function downloadBlob(filename, content, mime) {
 
 function exportCsv(rows) {
   const headers = [
-    "COD", "Descrição", "Departamento", "Marca", "Estoque UN",
-    "Dias Estoque", "Vendas Atual UN", "Faturamento", "Status",
+    "COD", "Descrição", "Departamento", "Marca",
+    "Vendas Atual UN", "Vendas M-1 UN", "Vendas M-2 UN", "Vendas M-3 UN",
+    "Média Mensal UN", "Faturamento", "Status Vendas",
   ];
   const lines = [headers.join(";")];
   rows.forEach((p) => {
@@ -706,11 +701,13 @@ function exportCsv(rows) {
       escapeCsv(p.descricao),
       escapeCsv(p.departamento),
       escapeCsv(p.marca),
-      escapeCsv(p.estoque_un),
-      escapeCsv(Number(p.dias_estoque_un || 0).toFixed(1)),
       escapeCsv(p.vendas_un),
+      escapeCsv(p.vendas_m1_un),
+      escapeCsv(p.vendas_m2_un),
+      escapeCsv(p.vendas_m3_un),
+      escapeCsv(p.media_mensal_un),
       escapeCsv(Number(p.faturamento || 0).toFixed(2)),
-      escapeCsv(STATUS_LABELS[p.status] || p.status),
+      escapeCsv(VENDAS_LABELS[p.status_vendas] || p.status_vendas),
     ].join(";"));
   });
   // BOM para Excel abrir UTF-8 corretamente
@@ -723,19 +720,21 @@ function exportXls(rows) {
   // HTML table que o Excel abre como planilha
   let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
   html += "<tr><th>COD</th><th>Descrição</th><th>Departamento</th><th>Marca</th>" +
-    "<th>Estoque UN</th><th>Dias Estoque</th><th>Vendas Atual UN</th>" +
-    "<th>Faturamento</th><th>Status</th></tr>";
+    "<th>Vendas Atual UN</th><th>Vendas M-1 UN</th><th>Vendas M-2 UN</th><th>Vendas M-3 UN</th>" +
+    "<th>Média Mensal UN</th><th>Faturamento</th><th>Status Vendas</th></tr>";
   rows.forEach((p) => {
     html +=
       "<tr><td>" + (p.cod || "") +
       "</td><td>" + (p.descricao || "") +
       "</td><td>" + (p.departamento || "") +
       "</td><td>" + (p.marca || "") +
-      "</td><td>" + (p.estoque_un || 0) +
-      "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
       "</td><td>" + (p.vendas_un || 0) +
+      "</td><td>" + (p.vendas_m1_un || 0) +
+      "</td><td>" + (p.vendas_m2_un || 0) +
+      "</td><td>" + (p.vendas_m3_un || 0) +
+      "</td><td>" + (p.media_mensal_un || 0) +
       "</td><td>" + Number(p.faturamento || 0).toFixed(2) +
-      "</td><td>" + (STATUS_LABELS[p.status] || p.status) +
+      "</td><td>" + (VENDAS_LABELS[p.status_vendas] || p.status_vendas || "") +
       "</td></tr>";
   });
   html += "</table></body></html>";
@@ -788,11 +787,8 @@ function setupExport() {
 const ENTRADA_PAGE_SIZE = 20;
 
 function getEntradaRows() {
-  // respeita filtros globais de marca e departamento
-  let rows = filterProducts({ status: false, vendasStatus: false });
-  if (state.entradaStatus && state.entradaStatus !== "Todos") {
-    rows = rows.filter((p) => p.status === state.entradaStatus);
-  }
+  // marca + dept + status (estoque global)
+  let rows = filterProducts({ vendasStatus: false });
   if (state.entradaSearch) {
     const q = state.entradaSearch.toLowerCase();
     rows = rows.filter(
@@ -810,7 +806,6 @@ function getEntradaRows() {
   rows = [...rows].sort((a, b) => {
     let va = a[key] ?? "";
     let vb = b[key] ?? "";
-    // datas dd/mm/yyyy → ordenar por timestamp
     if (key === "data_ultima_entrada") {
       const parse = (s) => {
         if (!s) return 0;
@@ -818,9 +813,7 @@ function getEntradaRows() {
         if (!m) return 0;
         return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
       };
-      va = parse(va);
-      vb = parse(vb);
-      return (va - vb) * dir;
+      return (parse(va) - parse(vb)) * dir;
     }
     if (typeof va === "string") return String(va).localeCompare(String(vb), "pt-BR") * dir;
     return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
@@ -828,14 +821,15 @@ function getEntradaRows() {
   return rows;
 }
 
-function updateEntradaStatusCounts() {
+function updateStatusCounts() {
+  // contagens respeitam marca + departamento (sem status)
   const rows = filterProducts({ status: false, vendasStatus: false });
   const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
   rows.forEach((p) => {
     if (counts[p.status] !== undefined) counts[p.status]++;
   });
   ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
-    const el = document.getElementById("ecount-" + st);
+    const el = document.getElementById("count-" + st);
     if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
   });
 }
@@ -881,7 +875,6 @@ function renderEntradaTable() {
       renderEntradaTable();
     });
   }
-  updateEntradaStatusCounts();
 }
 
 function setupEntradaTable() {
@@ -893,15 +886,6 @@ function setupEntradaTable() {
       renderEntradaTable();
     });
   }
-  document.querySelectorAll("#entrada-status-filters .chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      state.entradaStatus = btn.dataset.estatus;
-      state.entradaPage = 1;
-      renderEntradaTable();
-    });
-  });
   document.querySelectorAll(".entrada-table th[data-ekey]").forEach((th) => {
     th.addEventListener("click", () => {
       const key = th.dataset.ekey;
@@ -916,6 +900,7 @@ function setupEntradaTable() {
     });
   });
 }
+
 
 function refreshAll() {
   const products = getBaseProducts();

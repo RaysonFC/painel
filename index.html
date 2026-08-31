@@ -139,7 +139,7 @@
 
   <section class="panel panel-table">
     <div class="table-toolbar">
-      <h2>PRODUTOS</h2>
+      <h2>PRODUTOS — ACOMPANHAMENTO DE VENDAS</h2>
       <div class="toolbar-controls">
         <button type="button" class="btn-export" id="btn-export">⬇ Exportar</button>
         <input type="search" id="search-box" placeholder="Buscar COD, produto, marca ou depto...">
@@ -150,7 +150,45 @@
           <button type="button" class="chip-top" data-top="50">Top 50</button>
           <button type="button" class="chip-top" data-top="100">Top 100</button>
         </div>
-        <div class="status-filters" id="status-filters">
+      </div>
+    </div>
+
+    <div class="status-rules vendas-rules">
+      <span class="rule-item"><strong>📈 Crescimento</strong> — Vendas atual &gt; média 3 meses (+5%)</span>
+      <span class="rule-item"><strong>➡️ Estável</strong> — Variação entre −5% e +5%</span>
+      <span class="rule-item"><strong>📉 Queda</strong> — Vendas atual &lt; média 3 meses (−5%)</span>
+    </div>
+
+    <div class="table-scroll product-scroll">
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th data-key="cod">COD</th>
+            <th data-key="descricao">Descrição</th>
+            <th data-key="departamento">Departamento</th>
+            <th data-key="marca">Marca</th>
+            <th data-key="vendas_un" class="num">Vendas Atual UN</th>
+            <th data-key="vendas_m1_un" class="num">Vendas M-1 UN</th>
+            <th data-key="vendas_m2_un" class="num">Vendas M-2 UN</th>
+            <th data-key="vendas_m3_un" class="num">Vendas M-3 UN</th>
+            <th data-key="media_mensal_un" class="num">Média Mensal UN</th>
+            <th data-key="faturamento" class="num">Faturamento</th>
+            <th data-key="status_vendas">Status</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <section class="panel panel-table panel-entrada">
+    <div class="table-toolbar">
+      <h2>ENTRADAS / PEDIDOS</h2>
+      <div class="toolbar-controls">
+        <input type="search" id="search-entrada" placeholder="Buscar COD, produto, marca, depto ou nº pedido...">
+        <div class="status-filters" id="entrada-status-filters">
           <button class="chip chip-all active" data-status="Todos">Todos <span class="chip-count" id="count-Todos"></span></button>
           <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura <span class="chip-count" id="count-Ruptura"></span></button>
           <button class="chip chip-critico" data-status="Critico">🔴 Crítico <span class="chip-count" id="count-Critico"></span></button>
@@ -165,44 +203,7 @@
       <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
       <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
       <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
-    </div>
-
-    <div class="table-scroll product-scroll">
-      <table class="product-table">
-        <thead>
-          <tr>
-            <th data-key="cod">COD</th>
-            <th data-key="descricao">Descrição</th>
-            <th data-key="departamento">Departamento</th>
-            <th data-key="marca">Marca</th>
-            <th data-key="estoque_un" class="num">Estoque UN</th>
-            <th data-key="dias_estoque_un" class="num">Dias Estoque</th>
-            <th data-key="vendas_un" class="num">Vendas Atual UN</th>
-            <th data-key="faturamento" class="num">Faturamento</th>
-            <th data-key="status">Status</th>
-          </tr>
-        </thead>
-        <tbody id="product-tbody"></tbody>
-      </table>
-    </div>
-
-    <div class="pagination" id="pagination"></div>
-  </section>
-
-
-  <section class="panel panel-table panel-entrada">
-    <div class="table-toolbar">
-      <h2>ENTRADAS / PEDIDOS</h2>
-      <div class="toolbar-controls">
-        <input type="search" id="search-entrada" placeholder="Buscar COD, produto, marca, depto ou pedido...">
-        <div class="status-filters" id="entrada-status-filters">
-          <button class="chip chip-all active" data-estatus="Todos">Todos <span class="chip-count" id="ecount-Todos"></span></button>
-          <button class="chip chip-ruptura" data-estatus="Ruptura">⚠️ Ruptura <span class="chip-count" id="ecount-Ruptura"></span></button>
-          <button class="chip chip-critico" data-estatus="Critico">🔴 Crítico <span class="chip-count" id="ecount-Critico"></span></button>
-          <button class="chip chip-ok" data-estatus="OK">🟢 OK <span class="chip-count" id="ecount-OK"></span></button>
-          <button class="chip chip-over" data-estatus="Over">🔵 Over <span class="chip-count" id="ecount-Over"></span></button>
-        </div>
-      </div>
+      <span class="rulerule-item rule-hint">Clique no status para filtrar o site inteiro</span>
     </div>
 
     <div class="table-scroll product-scroll entrada-scroll">
