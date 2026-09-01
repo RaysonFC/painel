@@ -36,7 +36,7 @@ body {
 }
 
 .topbar {
-  background: linear-gradient(135deg, #0a1628, #1a3a6e 50%, #1e5eff);
+  background: linear-gradient(135deg, #121E32, #1D2D49 50%, #213251);
   padding: 18px 28px;
   display: flex;
   align-items: center;
@@ -53,8 +53,8 @@ body {
 .brand-text { display: flex; flex-direction: column; gap: 2px; }
 
 .brand-mark {
-  background: var(--blue);
-  color: var(--white);
+  background: #5C9A2E;
+  color: #121E32;
   font-weight: 800;
   font-size: 14px;
   padding: 8px 10px;
@@ -69,7 +69,7 @@ body {
   margin: 0;
   font-weight: 800;
 }
-.brand h1 .accent { color: #9ec1ff; }
+.brand h1 .accent { color: #5C9A2E; }
 
 .data-updated {
   font-size: 11px;
@@ -94,11 +94,11 @@ body {
 .kpi-label { font-size: 11px; font-weight: 700; opacity: 0.85; letter-spacing: 0.5px; }
 .kpi-value { font-size: 18px; font-weight: 800; }
 
-/* Paleta azul nos KPIs */
-.kpi-meta { background: #163a7a; }
-.kpi-venda { background: #1e5eff; }
-.kpi-falta { background: #3b7ddd; }
-.kpi-estoque { background: #0d4fd6; }
+/* KPIs — paleta atualizada */
+.kpi-meta { background: #243656; }
+.kpi-venda { background: #2D6CDF; }
+.kpi-falta { background: #4A7A26; }
+.kpi-estoque { background: #5C9A2E; }
 
 .filter-bar {
   background: var(--white);
@@ -864,7 +864,7 @@ body {
     display: block;
     width: 100%;
     box-sizing: border-box;
-    background: linear-gradient(135deg, #0a1628, #1a3a6e 50%, #1e5eff);
+    background: linear-gradient(135deg, #121E32, #1D2D49 50%, #213251);
     padding: 14px var(--gutter);
   }
 
