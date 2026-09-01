@@ -565,13 +565,15 @@ function renderDeptHealth(deptHealth) {
         let valueHtml;
         let badgeHtml;
         if (isEstoque) {
-          const st = r.status_estoque || "OK";
+          const sc = r.statusCounts || {};
           valueHtml = fmtInt(r.estoque_un) + " un";
+          // Mini breakdown: ⚠️ n · 🔴 n · 🟢 n · 🔵 n
           badgeHtml =
-            '<span class="status-badge status-' +
-            st +
-            '">' +
-            (STATUS_LABELS[st] || st) +
+            '<span class="dept-status-break">' +
+            '<span class="dsb dsb-rup" title="Ruptura">⚠️ ' + fmtInt(sc.Ruptura || 0) + "</span>" +
+            '<span class="dsb dsb-cri" title="Crítico">🔴 ' + fmtInt(sc.Critico || 0) + "</span>" +
+            '<span class="dsb dsb-ok" title="OK">🟢 ' + fmtInt(sc.OK || 0) + "</span>" +
+            '<span class="dsb dsb-over" title="Over">🔵 ' + fmtInt(sc.Over || 0) + "</span>" +
             "</span>";
         } else {
           const sit = r.situacao || "Sem Vendas";

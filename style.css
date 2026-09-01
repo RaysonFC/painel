@@ -1337,3 +1337,36 @@ body {
   white-space: nowrap;
   font-size: 12px;
 }
+
+/* Breakdown de status por departamento (aba Estoque mobile) */
+.dept-status-break {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  justify-content: flex-end;
+  max-width: 58%;
+  flex-shrink: 0;
+}
+.dsb {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.dsb-rup { color: #c0392b; }
+.dsb-cri { color: #d68910; }
+.dsb-ok { color: #5a8c2c; }
+.dsb-over { color: #2D6CDF; }
+
+@media (max-width: 480px) {
+  .dept-status-break {
+    max-width: 100%;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+  .dept-mobile-item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .dept-mobile-left { flex: 1 1 100%; }
+}
