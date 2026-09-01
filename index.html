@@ -17,11 +17,6 @@
 
 <header class="topbar">
   <div class="topbar-head">
-    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-drawer">
-      <span class="menu-toggle-bar"></span>
-      <span class="menu-toggle-bar"></span>
-      <span class="menu-toggle-bar"></span>
-    </button>
     <div class="brand">
       <span class="brand-mark">FS</span>
       <div class="brand-text">
@@ -92,21 +87,6 @@
   <button type="button" class="mobile-tab" data-tab="estoque">📦 Estoque</button>
 </nav>
 
-<!-- Drawer menu mobile -->
-<div class="drawer-overlay" id="drawer-overlay" hidden></div>
-<aside class="mobile-drawer" id="mobile-drawer" hidden aria-hidden="true">
-  <div class="drawer-header">
-    <span class="drawer-title">Menu</span>
-    <button type="button" class="drawer-close" id="drawer-close" aria-label="Fechar menu">✕</button>
-  </div>
-  <nav class="drawer-nav">
-    <button type="button" class="drawer-item active" data-tab="faturamento">📊 Faturamento</button>
-    <button type="button" class="drawer-item" data-tab="estoque">📦 Estoque</button>
-    <hr class="drawer-sep">
-    <button type="button" class="drawer-item drawer-action" id="drawer-clear-filters">🗑 Limpar filtros</button>
-  </nav>
-</aside>
-
 <main class="grid">
 
   <section class="panel panel-donut" data-mobile-tab="faturamento">
@@ -132,18 +112,30 @@
   </section>
 
   <section class="panel panel-gauge" data-mobile-tab="both">
-    <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+    <h2 id="saude-title">SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
 
-    <div class="meta-gauge-wrap">
-      <svg id="meta-gauge" viewBox="0 0 200 115"></svg>
-      <div class="meta-gauge-center">
-        <span id="meta-gauge-pct">0%</span>
-        <small>da Meta Mensal atingida</small>
+    <!-- Modo Faturamento / desktop: meta mensal -->
+    <div class="gauge-mode gauge-mode-meta" id="gauge-mode-meta">
+      <div class="meta-gauge-wrap">
+        <svg id="meta-gauge" viewBox="0 0 200 115"></svg>
+        <div class="meta-gauge-center">
+          <span id="meta-gauge-pct">0%</span>
+          <small>da Meta Mensal atingida</small>
+        </div>
+      </div>
+      <div class="meta-gauge-legend">
+        <span>Meta: <strong id="meta-gauge-meta">R$ 0</strong></span>
+        <span>Atual: <strong id="meta-gauge-atual">R$ 0</strong></span>
       </div>
     </div>
-    <div class="meta-gauge-legend">
-      <span>Meta: <strong id="meta-gauge-meta">R$ 0</strong></span>
-      <span>Atual: <strong id="meta-gauge-atual">R$ 0</strong></span>
+
+    <!-- Modo Estoque (mobile): medidor por status -->
+    <div class="gauge-mode gauge-mode-status" id="gauge-mode-status" hidden>
+      <div class="status-meter-wrap">
+        <div class="status-meter" id="status-meter" role="img" aria-label="Distribuição por status de estoque"></div>
+        <div class="status-meter-total" id="status-meter-total">0 itens</div>
+      </div>
+      <ul class="status-meter-legend" id="status-meter-legend"></ul>
     </div>
 
     <p class="click-hint">Clique em um departamento para filtrar o dashboard</p>
@@ -163,7 +155,7 @@
         <tbody></tbody>
       </table>
     </div>
-    <!-- Lista curta só no mobile: departamento + situação -->
+    <!-- Lista curta só no mobile -->
     <ul class="dept-health-mobile" id="dept-health-mobile" hidden></ul>
   </section>
 

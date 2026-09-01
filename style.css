@@ -1267,3 +1267,73 @@ body {
   }
   .drawer-action { color: var(--text-muted); font-weight: 600; }
 }
+
+/* Medidor de status de estoque (aba Estoque) */
+.status-meter-wrap {
+  margin: 8px 0 12px;
+}
+.status-meter {
+  display: flex;
+  width: 100%;
+  height: 18px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--grey-line);
+}
+.status-meter-seg {
+  height: 100%;
+  min-width: 0;
+  transition: width 0.35s ease;
+}
+.status-meter-empty {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px;
+}
+.status-meter-total {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+  text-align: center;
+}
+.status-meter-legend {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.status-meter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  border: 1px solid transparent;
+  background: var(--grey-bg);
+}
+.status-meter-item:hover { background: #eef3fc; }
+.status-meter-item.active {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+  background: #d6e4ff;
+}
+.status-meter-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-meter-label { flex: 1; font-weight: 600; }
+.status-meter-vals {
+  font-weight: 700;
+  color: var(--navy);
+  white-space: nowrap;
+  font-size: 12px;
+}

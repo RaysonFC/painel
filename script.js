@@ -149,24 +149,79 @@ function computeDeptBars(products) {
     .sort((a, b) => b.faturamento - a.faturamento);
 }
 
+const ESTOQUE_STATUS_ORDER = ["Ruptura", "Critico", "OK", "Over"];
+const ESTOQUE_STATUS_COLORS = {
+  Ruptura: "#e04b3f",
+  Critico: "#f0973d",
+  OK: "#7cb342",
+  Over: "#2D6CDF",
+};
+const ESTOQUE_STATUS_LABELS = {
+  Ruptura: "⚠️ Ruptura",
+  Critico: "🔴 Crítico",
+  OK: "🟢 OK",
+  Over: "🔵 Over",
+};
+
 function computeDeptHealth(productsForHealth) {
   const map = {};
   productsForHealth.forEach((p) => {
     const d = p.departamento || "OUTROS";
     if (!map[d]) {
-      map[d] = { departamento: d, faturamento: 0, vendas_un: 0, media_mensal_un: 0, giro_dia_un: 0 };
+      map[d] = {
+        departamento: d,
+        faturamento: 0,
+        vendas_un: 0,
+        media_mensal_un: 0,
+        giro_dia_un: 0,
+        estoque_un: 0,
+        statusCounts: { Ruptura: 0, Critico: 0, OK: 0, Over: 0 },
+      };
     }
     map[d].faturamento += Number(p.faturamento) || 0;
     map[d].vendas_un += Number(p.vendas_un) || 0;
     map[d].media_mensal_un += Number(p.media_mensal_un) || 0;
     map[d].giro_dia_un += Number(p.giro_dia_un) || 0;
+    map[d].estoque_un += Number(p.estoque_un) || 0;
+    const st = p.status || "Ruptura";
+    if (map[d].statusCounts[st] !== undefined) map[d].statusCounts[st]++;
   });
   return Object.values(map)
     .map((r) => {
       const pct = r.media_mensal_un ? r.vendas_un / r.media_mensal_un : 0;
-      return { ...r, pct_meta: pct, situacao: classifySituacao(r.vendas_un, r.media_mensal_un) };
+      // status predominante (mais produtos); empate → prioridade Ruptura > Critico > OK > Over
+      let best = "OK";
+      let bestN = -1;
+      ESTOQUE_STATUS_ORDER.forEach((st) => {
+        const n = r.statusCounts[st] || 0;
+        if (n > bestN) {
+          bestN = n;
+          best = st;
+        }
+      });
+      return {
+        ...r,
+        pct_meta: pct,
+        situacao: classifySituacao(r.vendas_un, r.media_mensal_un),
+        status_estoque: best,
+      };
     })
     .sort((a, b) => b.faturamento - a.faturamento);
+}
+
+/** Resumo de status de estoque a partir dos produtos filtrados */
+function computeEstoqueStatusSummary(products) {
+  const counts = { Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  products.forEach((p) => {
+    const st = p.status || "Ruptura";
+    if (counts[st] !== undefined) counts[st]++;
+  });
+  const total = Object.values(counts).reduce((a, b) => a + b, 0) || 0;
+  return ESTOQUE_STATUS_ORDER.map((st) => ({
+    status: st,
+    qtd: counts[st],
+    pct: total ? (counts[st] / total) * 100 : 0,
+  }));
 }
 
 function renderUpdatedAt() {
@@ -330,6 +385,100 @@ function renderMetaGauge(kpis) {
   if (atualEl) atualEl.textContent = fmtMoney(atual);
 }
 
+/** Medidor dividido por status de estoque (% + qtd de itens) */
+function renderStatusMeter(summary) {
+  const meter = document.getElementById("status-meter");
+  const legend = document.getElementById("status-meter-legend");
+  const totalEl = document.getElementById("status-meter-total");
+  if (!meter) return;
+
+  const total = summary.reduce((s, x) => s + x.qtd, 0);
+  if (totalEl) totalEl.textContent = fmtInt(total) + " itens";
+
+  if (!total) {
+    meter.innerHTML = '<div class="status-meter-empty">Sem itens no filtro</div>';
+    if (legend) legend.innerHTML = "";
+    return;
+  }
+
+  meter.innerHTML = summary
+    .filter((s) => s.qtd > 0)
+    .map((s) => {
+      const w = Math.max(s.pct, s.pct > 0 ? 2 : 0);
+      return (
+        '<div class="status-meter-seg" style="width:' +
+        w.toFixed(2) +
+        "%;background:" +
+        (ESTOQUE_STATUS_COLORS[s.status] || "#999") +
+        '" title="' +
+        (ESTOQUE_STATUS_LABELS[s.status] || s.status) +
+        ": " +
+        s.pct.toFixed(1) +
+        "% · " +
+        fmtInt(s.qtd) +
+        ' itens"></div>'
+      );
+    })
+    .join("");
+
+  if (legend) {
+    legend.innerHTML = summary
+      .map((s) => {
+        const active = state.status === s.status ? " active" : "";
+        return (
+          '<li class="status-meter-item' +
+          active +
+          '" data-status="' +
+          s.status +
+          '">' +
+          '<span class="status-meter-dot" style="background:' +
+          (ESTOQUE_STATUS_COLORS[s.status] || "#999") +
+          '"></span>' +
+          '<span class="status-meter-label">' +
+          (ESTOQUE_STATUS_LABELS[s.status] || s.status) +
+          "</span>" +
+          '<span class="status-meter-vals">' +
+          s.pct.toFixed(1).replace(".", ",") +
+          "% · " +
+          fmtInt(s.qtd) +
+          " un</span></li>"
+        );
+      })
+      .join("");
+
+    legend.querySelectorAll(".status-meter-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        const st = el.getAttribute("data-status");
+        state.status = state.status === st ? "Todos" : st;
+        state.page = 1;
+        state.entradaPage = 1;
+        document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => {
+          b.classList.toggle("active", b.dataset.status === state.status);
+        });
+        refreshAll();
+      });
+    });
+  }
+}
+
+function updateSaudePanelMode() {
+  const isEstoque = document.body.dataset.mobileTab === "estoque";
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const modeMeta = document.getElementById("gauge-mode-meta");
+  const modeStatus = document.getElementById("gauge-mode-status");
+  const title = document.getElementById("saude-title");
+
+  if (isMobile && isEstoque) {
+    if (modeMeta) modeMeta.hidden = true;
+    if (modeStatus) modeStatus.hidden = false;
+    if (title) title.textContent = "SAÚDE DO ESTOQUE POR STATUS";
+  } else {
+    if (modeMeta) modeMeta.hidden = false;
+    if (modeStatus) modeStatus.hidden = true;
+    if (title) title.textContent = "SAÚDE DO ESTOQUE POR DEPARTAMENTO";
+  }
+}
+
 function renderDeptBars(deptBars) {
   const el = document.getElementById("dept-bars");
   if (!el) return;
@@ -400,22 +549,52 @@ function renderDeptHealth(deptHealth) {
     tbody.querySelectorAll("tr.dept-row").forEach(bindDeptClick);
   }
 
-  // Lista curta para mobile: departamento + faturamento + situação (clicável)
+  // Lista curta mobile — conteúdo muda conforme a aba
   const mobileList = document.getElementById("dept-health-mobile");
   if (mobileList) {
-    mobileList.innerHTML = deptHealth
+    const isEstoque = document.body.dataset.mobileTab === "estoque";
+    // na aba estoque ordenar por estoque
+    const rows = isEstoque
+      ? [...deptHealth].sort((a, b) => (b.estoque_un || 0) - (a.estoque_un || 0))
+      : deptHealth;
+
+    mobileList.innerHTML = rows
       .map((r) => {
-        const sit = r.situacao || "Sem Vendas";
-        const cls = SITUACAO_CLASS[sit] || "sit-sem";
         const active = state.selectedDept === r.departamento ? " active" : "";
         const deptAttr = (r.departamento || "").replace(/"/g, "&quot;");
+        let valueHtml;
+        let badgeHtml;
+        if (isEstoque) {
+          const st = r.status_estoque || "OK";
+          valueHtml = fmtInt(r.estoque_un) + " un";
+          badgeHtml =
+            '<span class="status-badge status-' +
+            st +
+            '">' +
+            (STATUS_LABELS[st] || st) +
+            "</span>";
+        } else {
+          const sit = r.situacao || "Sem Vendas";
+          const cls = SITUACAO_CLASS[sit] || "sit-sem";
+          valueHtml = fmtMoney(r.faturamento);
+          badgeHtml =
+            '<span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) + "</span>";
+        }
         return (
-          '<li class="dept-mobile-item' + active + '" data-dept="' + deptAttr + '">' +
+          '<li class="dept-mobile-item' +
+          active +
+          '" data-dept="' +
+          deptAttr +
+          '">' +
           '<div class="dept-mobile-left">' +
-            '<span class="dept-mobile-name">' + (r.departamento || "") + "</span>" +
-            '<span class="dept-mobile-fat">' + fmtMoney(r.faturamento) + "</span>" +
+          '<span class="dept-mobile-name">' +
+          (r.departamento || "") +
+          "</span>" +
+          '<span class="dept-mobile-fat">' +
+          valueHtml +
+          "</span>" +
           "</div>" +
-          '<span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) + "</span>" +
+          badgeHtml +
           "</li>"
         );
       })
@@ -1149,16 +1328,21 @@ function refreshAll() {
   // marca + dept + status(estoque), mas SEM status_vendas — assim o donut
   // sempre mostra as 3 fatias completas, mesmo com uma delas selecionada.
   const productsForDonut = filterProducts({ vendasStatus: false });
+  // para o medidor de status: marca + dept, SEM status (mostra os 4 sempre)
+  const productsForStatusMeter = filterProducts({ status: false, vendasStatus: false });
 
   const kpis = computeKpis(products);
   const vendasSummary = computeVendasStatusSummary(productsForDonut);
   const deptBars = computeDeptBars(products);
   const deptHealth = computeDeptHealth(productsForHealth);
+  const estoqueStatusSummary = computeEstoqueStatusSummary(productsForStatusMeter);
 
   renderUpdatedAt();
   renderKpis(kpis);
   renderDonut(vendasSummary, kpis.venda_atual);
   renderMetaGauge(kpis);
+  renderStatusMeter(estoqueStatusSummary);
+  updateSaudePanelMode();
   renderDeptBars(deptBars);
   renderDeptHealth(deptHealth);
   renderTable(products);
@@ -1167,15 +1351,12 @@ function refreshAll() {
   renderEntradaTable();
 }
 
-/* ---------- Mobile tabs + hamburger ---------- */
+/* ---------- Mobile tabs (pills) ---------- */
 function setMobileTab(tab) {
   const next = tab === "estoque" ? "estoque" : "faturamento";
   document.body.dataset.mobileTab = next;
 
   document.querySelectorAll(".mobile-tab").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.tab === next);
-  });
-  document.querySelectorAll(".drawer-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === next);
   });
 
@@ -1184,99 +1365,22 @@ function setMobileTab(tab) {
     const show = scope === "both" || scope === next;
     panel.classList.toggle("is-tab-hidden", !show);
   });
-}
 
-function openDrawer() {
-  const drawer = document.getElementById("mobile-drawer");
-  const overlay = document.getElementById("drawer-overlay");
-  const toggle = document.getElementById("menu-toggle");
-  if (!drawer || !overlay) return;
-  drawer.hidden = false;
-  overlay.hidden = false;
-  void drawer.offsetWidth;
-  drawer.classList.add("is-open");
-  overlay.classList.add("is-open");
-  drawer.setAttribute("aria-hidden", "false");
-  if (toggle) toggle.setAttribute("aria-expanded", "true");
-  document.body.style.overflow = "hidden";
-}
-
-function closeDrawer() {
-  const drawer = document.getElementById("mobile-drawer");
-  const overlay = document.getElementById("drawer-overlay");
-  const toggle = document.getElementById("menu-toggle");
-  if (!drawer || !overlay) return;
-  drawer.classList.remove("is-open");
-  overlay.classList.remove("is-open");
-  drawer.setAttribute("aria-hidden", "true");
-  if (toggle) toggle.setAttribute("aria-expanded", "false");
-  document.body.style.overflow = "";
-  setTimeout(() => {
-    if (!drawer.classList.contains("is-open")) {
-      drawer.hidden = true;
-      overlay.hidden = true;
-    }
-  }, 280);
-}
-
-function clearAllFilters() {
-  state.selectedMarcas.clear();
-  state.selectedDept = null;
-  state.selectedVendasStatus = null;
-  state.status = "Todos";
-  state.search = "";
-  state.entradaSearch = "";
-  state.topN = 0;
-  state.page = 1;
-  state.entradaPage = 1;
-
-  const searchBox = document.getElementById("search-box");
-  if (searchBox) searchBox.value = "";
-  const searchEntrada = document.getElementById("search-entrada");
-  if (searchEntrada) searchEntrada.value = "";
-
-  document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => {
-    b.classList.toggle("active", b.dataset.status === "Todos");
-  });
-  document.querySelectorAll(".top-filters .chip-top").forEach((b) => {
-    b.classList.toggle("active", (b.dataset.top || "0") === "0");
-  });
-
-  updateMarcaToggleText();
-  renderMarcaList("");
-  updateDeptFilterUI();
-  updateVendasFilterUI();
-  refreshAll();
+  updateSaudePanelMode();
+  // re-render lista mobile (estoque vs faturamento)
+  const productsForHealth = filterProducts({ dept: false });
+  renderDeptHealth(computeDeptHealth(productsForHealth));
+  const productsForStatusMeter = filterProducts({ status: false, vendasStatus: false });
+  renderStatusMeter(computeEstoqueStatusSummary(productsForStatusMeter));
 }
 
 function setupMobileNav() {
   setMobileTab("faturamento");
-
   document.querySelectorAll(".mobile-tab").forEach((btn) => {
     btn.addEventListener("click", () => setMobileTab(btn.dataset.tab));
   });
-  document.querySelectorAll(".drawer-item[data-tab]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setMobileTab(btn.dataset.tab);
-      closeDrawer();
-    });
-  });
-
-  const toggle = document.getElementById("menu-toggle");
-  const closeBtn = document.getElementById("drawer-close");
-  const overlay = document.getElementById("drawer-overlay");
-  const clearBtn = document.getElementById("drawer-clear-filters");
-
-  toggle?.addEventListener("click", () => {
-    const open = toggle.getAttribute("aria-expanded") === "true";
-    if (open) closeDrawer();
-    else openDrawer();
-  });
-  closeBtn?.addEventListener("click", closeDrawer);
-  overlay?.addEventListener("click", closeDrawer);
-  clearBtn?.addEventListener("click", () => {
-    clearAllFilters();
-    closeDrawer();
+  window.addEventListener("resize", () => {
+    updateSaudePanelMode();
   });
 }
 
