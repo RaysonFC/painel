@@ -17,6 +17,11 @@
 
 <header class="topbar">
   <div class="topbar-head">
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-drawer">
+      <span class="menu-toggle-bar"></span>
+      <span class="menu-toggle-bar"></span>
+      <span class="menu-toggle-bar"></span>
+    </button>
     <div class="brand">
       <span class="brand-mark">FS</span>
       <div class="brand-text">
@@ -81,9 +86,30 @@
   </div>
 </div>
 
+<!-- Abas mobile (pills) -->
+<nav class="mobile-tabs" id="mobile-tabs" aria-label="Seções do painel">
+  <button type="button" class="mobile-tab active" data-tab="faturamento">📊 Faturamento</button>
+  <button type="button" class="mobile-tab" data-tab="estoque">📦 Estoque</button>
+</nav>
+
+<!-- Drawer menu mobile -->
+<div class="drawer-overlay" id="drawer-overlay" hidden></div>
+<aside class="mobile-drawer" id="mobile-drawer" hidden aria-hidden="true">
+  <div class="drawer-header">
+    <span class="drawer-title">Menu</span>
+    <button type="button" class="drawer-close" id="drawer-close" aria-label="Fechar menu">✕</button>
+  </div>
+  <nav class="drawer-nav">
+    <button type="button" class="drawer-item active" data-tab="faturamento">📊 Faturamento</button>
+    <button type="button" class="drawer-item" data-tab="estoque">📦 Estoque</button>
+    <hr class="drawer-sep">
+    <button type="button" class="drawer-item drawer-action" id="drawer-clear-filters">🗑 Limpar filtros</button>
+  </nav>
+</aside>
+
 <main class="grid">
 
-  <section class="panel panel-donut">
+  <section class="panel panel-donut" data-mobile-tab="faturamento">
     <h2>VENDAS ATUAL UN</h2>
     <div class="donut-wrap donut-lg">
       <svg id="donut" viewBox="0 0 480 480"></svg>
@@ -96,7 +122,7 @@
     <button type="button" id="clear-vendas-filter" class="clear-dept-btn clear-vendas-btn" hidden>✕ Limpar filtro de vendas</button>
   </section>
 
-  <section class="panel panel-bars">
+  <section class="panel panel-bars" data-mobile-tab="faturamento">
     <h2>FATURAMENTO × VENDAS UN POR DEPARTAMENTO</h2>
     <div class="cluster-legend">
       <span><i class="leg-fat"></i> Faturamento (R$)</span>
@@ -105,7 +131,7 @@
     <div class="cluster-bars" id="dept-bars"></div>
   </section>
 
-  <section class="panel panel-gauge">
+  <section class="panel panel-gauge" data-mobile-tab="both">
     <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
 
     <div class="meta-gauge-wrap">
@@ -141,7 +167,7 @@
     <ul class="dept-health-mobile" id="dept-health-mobile" hidden></ul>
   </section>
 
-  <section class="panel panel-table">
+  <section class="panel panel-table" data-mobile-tab="faturamento">
     <div class="table-toolbar">
       <h2>PRODUTOS — ACOMPANHAMENTO DE VENDAS</h2>
       <div class="toolbar-controls">
@@ -187,7 +213,7 @@
     <div class="pagination" id="pagination"></div>
   </section>
 
-  <section class="panel panel-table panel-entrada">
+  <section class="panel panel-table panel-entrada" data-mobile-tab="estoque">
     <div class="table-toolbar">
       <h2>ENTRADAS / PEDIDOS</h2>
       <div class="toolbar-controls">

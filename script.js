@@ -1167,6 +1167,119 @@ function refreshAll() {
   renderEntradaTable();
 }
 
+/* ---------- Mobile tabs + hamburger ---------- */
+function setMobileTab(tab) {
+  const next = tab === "estoque" ? "estoque" : "faturamento";
+  document.body.dataset.mobileTab = next;
+
+  document.querySelectorAll(".mobile-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === next);
+  });
+  document.querySelectorAll(".drawer-item[data-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === next);
+  });
+
+  document.querySelectorAll(".grid > .panel[data-mobile-tab]").forEach((panel) => {
+    const scope = panel.getAttribute("data-mobile-tab");
+    const show = scope === "both" || scope === next;
+    panel.classList.toggle("is-tab-hidden", !show);
+  });
+}
+
+function openDrawer() {
+  const drawer = document.getElementById("mobile-drawer");
+  const overlay = document.getElementById("drawer-overlay");
+  const toggle = document.getElementById("menu-toggle");
+  if (!drawer || !overlay) return;
+  drawer.hidden = false;
+  overlay.hidden = false;
+  void drawer.offsetWidth;
+  drawer.classList.add("is-open");
+  overlay.classList.add("is-open");
+  drawer.setAttribute("aria-hidden", "false");
+  if (toggle) toggle.setAttribute("aria-expanded", "true");
+  document.body.style.overflow = "hidden";
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById("mobile-drawer");
+  const overlay = document.getElementById("drawer-overlay");
+  const toggle = document.getElementById("menu-toggle");
+  if (!drawer || !overlay) return;
+  drawer.classList.remove("is-open");
+  overlay.classList.remove("is-open");
+  drawer.setAttribute("aria-hidden", "true");
+  if (toggle) toggle.setAttribute("aria-expanded", "false");
+  document.body.style.overflow = "";
+  setTimeout(() => {
+    if (!drawer.classList.contains("is-open")) {
+      drawer.hidden = true;
+      overlay.hidden = true;
+    }
+  }, 280);
+}
+
+function clearAllFilters() {
+  state.selectedMarcas.clear();
+  state.selectedDept = null;
+  state.selectedVendasStatus = null;
+  state.status = "Todos";
+  state.search = "";
+  state.entradaSearch = "";
+  state.topN = 0;
+  state.page = 1;
+  state.entradaPage = 1;
+
+  const searchBox = document.getElementById("search-box");
+  if (searchBox) searchBox.value = "";
+  const searchEntrada = document.getElementById("search-entrada");
+  if (searchEntrada) searchEntrada.value = "";
+
+  document.querySelectorAll("#entrada-status-filters .chip").forEach((b) => {
+    b.classList.toggle("active", b.dataset.status === "Todos");
+  });
+  document.querySelectorAll(".top-filters .chip-top").forEach((b) => {
+    b.classList.toggle("active", (b.dataset.top || "0") === "0");
+  });
+
+  updateMarcaToggleText();
+  renderMarcaList("");
+  updateDeptFilterUI();
+  updateVendasFilterUI();
+  refreshAll();
+}
+
+function setupMobileNav() {
+  setMobileTab("faturamento");
+
+  document.querySelectorAll(".mobile-tab").forEach((btn) => {
+    btn.addEventListener("click", () => setMobileTab(btn.dataset.tab));
+  });
+  document.querySelectorAll(".drawer-item[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setMobileTab(btn.dataset.tab);
+      closeDrawer();
+    });
+  });
+
+  const toggle = document.getElementById("menu-toggle");
+  const closeBtn = document.getElementById("drawer-close");
+  const overlay = document.getElementById("drawer-overlay");
+  const clearBtn = document.getElementById("drawer-clear-filters");
+
+  toggle?.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-expanded") === "true";
+    if (open) closeDrawer();
+    else openDrawer();
+  });
+  closeBtn?.addEventListener("click", closeDrawer);
+  overlay?.addEventListener("click", closeDrawer);
+  clearBtn?.addEventListener("click", () => {
+    clearAllFilters();
+    closeDrawer();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof DASHBOARD_DATA === "undefined" || !DASHBOARD_DATA.produtos) {
     console.error("DASHBOARD_DATA não carregado. Verifique data.js");
@@ -1176,5 +1289,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTableControls();
   setupExport();
   setupEntradaTable();
+  setupMobileNav();
   refreshAll();
 });
