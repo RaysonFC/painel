@@ -124,17 +124,19 @@
         <thead>
           <tr>
             <th>Departamento</th>
-            <th class="num">Faturamento</th>
-            <th class="num">Média Vendas UN</th>
-            <th class="num">Vendas Atual UN</th>
-            <th class="num">Giro Dia</th>
+            <th class="num col-fat">Faturamento</th>
+            <th class="num col-hide-tablet">Média Vendas UN</th>
+            <th class="num col-hide-tablet">Vendas Atual UN</th>
+            <th class="num col-hide-tablet">Giro Dia</th>
             <th>Situação</th>
-            <th class="num">% Meta</th>
+            <th class="num col-pct">% Meta</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+    <!-- Lista curta só no mobile: departamento + situação -->
+    <ul class="dept-health-mobile" id="dept-health-mobile" hidden></ul>
   </section>
 
   <section class="panel panel-table">
@@ -163,16 +165,16 @@
       <table class="product-table">
         <thead>
           <tr>
-            <th data-key="cod">COD</th>
+            <th data-key="cod" class="col-cod">COD</th>
             <th data-key="descricao">Descrição</th>
-            <th data-key="departamento">Departamento</th>
-            <th data-key="marca">Marca</th>
+            <th data-key="departamento" class="col-hide-mobile">Departamento</th>
+            <th data-key="marca" class="col-hide-mobile">Marca</th>
             <th data-key="vendas_un" class="num">Vendas Atual UN</th>
-            <th data-key="vendas_m1_un" class="num">Vendas M-1 UN</th>
-            <th data-key="vendas_m2_un" class="num">Vendas M-2 UN</th>
-            <th data-key="vendas_m3_un" class="num">Vendas M-3 UN</th>
-            <th data-key="media_mensal_un" class="num">Média Mensal UN</th>
-            <th data-key="faturamento" class="num">Faturamento</th>
+            <th data-key="vendas_m1_un" class="num col-hide-tablet">Vendas M-1 UN</th>
+            <th data-key="vendas_m2_un" class="num col-hide-tablet">Vendas M-2 UN</th>
+            <th data-key="vendas_m3_un" class="num col-hide-tablet">Vendas M-3 UN</th>
+            <th data-key="media_mensal_un" class="num col-hide-tablet">Média Mensal UN</th>
+            <th data-key="faturamento" class="num col-hide-mobile">Faturamento</th>
             <th data-key="status_vendas">Status</th>
           </tr>
         </thead>
@@ -210,16 +212,16 @@
       <table class="product-table entrada-table">
         <thead>
           <tr>
-            <th data-ekey="cod">COD</th>
+            <th data-ekey="cod" class="col-cod">COD</th>
             <th data-ekey="descricao">Descrição</th>
-            <th data-ekey="estoque_un" class="num">Estoque UN</th>
-            <th data-ekey="dias_estoque_un" class="num">Dias Estoque</th>
-            <th data-ekey="departamento">Departamento</th>
-            <th data-ekey="marca">Marca</th>
-            <th data-ekey="data_ultima_entrada">Data Última Entrada</th>
+            <th data-ekey="estoque_un" class="num col-hide-mobile">Estoque UN</th>
+            <th data-ekey="dias_estoque_un" class="num col-hide-tablet">Dias Estoque</th>
+            <th data-ekey="departamento" class="col-hide-tablet">Departamento</th>
+            <th data-ekey="marca" class="col-hide-tablet">Marca</th>
+            <th data-ekey="data_ultima_entrada" class="col-hide-tablet">Data Última Entrada</th>
             <th data-ekey="numero_pedido">Nº Pedido</th>
             <th data-ekey="previsao_entrada">Previsão de Entrada</th>
-            <th data-ekey="qtd_pedida" class="num">Qtd. Pedida</th>
+            <th data-ekey="qtd_pedida" class="num col-hide-mobile">Qtd. Pedida</th>
             <th data-ekey="status">Status</th>
           </tr>
         </thead>

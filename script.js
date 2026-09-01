@@ -349,11 +349,11 @@ function renderDeptBars(deptBars) {
         '<div class="cluster-row">' +
         '<span class="cluster-label" title="' + d.departamento + '">' + d.departamento + "</span>" +
         '<div class="cluster-tracks">' +
-          '<div class="cluster-track-outer">' +
+          '<div class="cluster-track-outer track-fat">' +
             '<div class="cluster-track"><div class="cluster-fill fat" style="width:' + pctFat + '%"></div></div>' +
             '<span class="cluster-val-ext">' + fmtMoney(d.faturamento) + "</span>" +
           "</div>" +
-          '<div class="cluster-track-outer">' +
+          '<div class="cluster-track-outer track-vend">' +
             '<div class="cluster-track"><div class="cluster-fill vend" style="width:' + pctVend + '%"></div></div>' +
             '<span class="cluster-val-ext">' + fmtInt(d.vendas_un) + " un</span>" +
           "</div>" +
@@ -363,38 +363,62 @@ function renderDeptBars(deptBars) {
     .join("");
 }
 
+function bindDeptClick(el) {
+  if (!el) return;
+  el.addEventListener("click", () => {
+    const dept = el.getAttribute("data-dept");
+    state.selectedDept = state.selectedDept === dept ? null : dept;
+    state.page = 1;
+    state.entradaPage = 1;
+    updateDeptFilterUI();
+    refreshAll();
+  });
+}
+
 function renderDeptHealth(deptHealth) {
   const tbody = document.querySelector("#dept-health-table tbody");
-  if (!tbody) return;
+  if (tbody) {
+    tbody.innerHTML = deptHealth
+      .map((r) => {
+        const sit = r.situacao || "Sem Vendas";
+        const cls = SITUACAO_CLASS[sit] || "sit-sem";
+        const active = state.selectedDept === r.departamento ? " row-active" : "";
+        const deptAttr = (r.departamento || "").replace(/"/g, "&quot;");
+        return (
+          '<tr class="dept-row' + active + '" data-dept="' + deptAttr + '">' +
+          "<td>" + (r.departamento || "") +
+          '</td><td class="num col-fat">' + fmtMoney(r.faturamento) +
+          '</td><td class="num col-hide-tablet">' + fmtNum(r.media_mensal_un, 0) +
+          '</td><td class="num col-hide-tablet">' + fmtNum(r.vendas_un, 0) +
+          '</td><td class="num col-hide-tablet">' + fmtNum(r.giro_dia_un, 1) +
+          '</td><td><span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) +
+          '</span></td><td class="num col-pct">' + fmtPct(r.pct_meta) + "</td></tr>"
+        );
+      })
+      .join("");
 
-  tbody.innerHTML = deptHealth
-    .map((r) => {
-      const sit = r.situacao || "Sem Vendas";
-      const cls = SITUACAO_CLASS[sit] || "sit-sem";
-      const active = state.selectedDept === r.departamento ? " row-active" : "";
-      return (
-        '<tr class="dept-row' + active + '" data-dept="' +
-        (r.departamento || "").replace(/"/g, "&quot;") + '">' +
-        "<td>" + (r.departamento || "") +
-        '</td><td class="num">' + fmtMoney(r.faturamento) +
-        '</td><td class="num">' + fmtNum(r.media_mensal_un, 0) +
-        '</td><td class="num">' + fmtNum(r.vendas_un, 0) +
-        '</td><td class="num">' + fmtNum(r.giro_dia_un, 1) +
-        '</td><td><span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) +
-        '</span></td><td class="num">' + fmtPct(r.pct_meta) + "</td></tr>"
-      );
-    })
-    .join("");
+    tbody.querySelectorAll("tr.dept-row").forEach(bindDeptClick);
+  }
 
-  tbody.querySelectorAll("tr.dept-row").forEach((tr) => {
-    tr.addEventListener("click", () => {
-      const dept = tr.getAttribute("data-dept");
-      state.selectedDept = state.selectedDept === dept ? null : dept;
-      state.page = 1;
-      updateDeptFilterUI();
-      refreshAll();
-    });
-  });
+  // Lista curta para mobile: departamento + situação (clicável)
+  const mobileList = document.getElementById("dept-health-mobile");
+  if (mobileList) {
+    mobileList.innerHTML = deptHealth
+      .map((r) => {
+        const sit = r.situacao || "Sem Vendas";
+        const cls = SITUACAO_CLASS[sit] || "sit-sem";
+        const active = state.selectedDept === r.departamento ? " active" : "";
+        const deptAttr = (r.departamento || "").replace(/"/g, "&quot;");
+        return (
+          '<li class="dept-mobile-item' + active + '" data-dept="' + deptAttr + '">' +
+          '<span class="dept-mobile-name">' + (r.departamento || "") + "</span>" +
+          '<span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) + "</span>" +
+          "</li>"
+        );
+      })
+      .join("");
+    mobileList.querySelectorAll(".dept-mobile-item").forEach(bindDeptClick);
+  }
 }
 
 function updateDeptFilterUI() {
@@ -447,16 +471,16 @@ function renderTable(baseProducts) {
     .map((p) => {
       const sv = p.status_vendas || "Estavel";
       return (
-        "<tr><td>" + (p.cod || "") +
+        '<tr><td class="col-cod">' + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
-        "</td><td>" + (p.departamento || "") +
-        "</td><td>" + (p.marca || "") +
+        '</td><td class="col-hide-mobile">' + (p.departamento || "") +
+        '</td><td class="col-hide-mobile">' + (p.marca || "") +
         '</td><td class="num">' + fmtInt(p.vendas_un) +
-        '</td><td class="num">' + fmtInt(p.vendas_m1_un) +
-        '</td><td class="num">' + fmtInt(p.vendas_m2_un) +
-        '</td><td class="num">' + fmtInt(p.vendas_m3_un) +
-        '</td><td class="num">' + fmtInt(p.media_mensal_un) +
-        '</td><td class="num">' + fmtMoney(p.faturamento) +
+        '</td><td class="num col-hide-tablet">' + fmtInt(p.vendas_m1_un) +
+        '</td><td class="num col-hide-tablet">' + fmtInt(p.vendas_m2_un) +
+        '</td><td class="num col-hide-tablet">' + fmtInt(p.vendas_m3_un) +
+        '</td><td class="num col-hide-tablet">' + fmtInt(p.media_mensal_un) +
+        '</td><td class="num col-hide-mobile">' + fmtMoney(p.faturamento) +
         '</td><td><span class="vendas-text vendas-' + sv + '">' +
         (VENDAS_LABELS[sv] || sv) + "</span></td></tr>"
       );
@@ -846,16 +870,16 @@ function renderEntradaTable() {
   tbody.innerHTML = pageRows
     .map(
       (p) =>
-        "<tr><td>" + (p.cod || "") +
+        '<tr><td class="col-cod">' + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
-        '</td><td class="num">' + fmtInt(p.estoque_un) +
-        '</td><td class="num">' + Number(p.dias_estoque_un || 0).toFixed(1) +
-        "</td><td>" + (p.departamento || "") +
-        "</td><td>" + (p.marca || "") +
-        "</td><td>" + (p.data_ultima_entrada || "—") +
+        '</td><td class="num col-hide-mobile">' + fmtInt(p.estoque_un) +
+        '</td><td class="num col-hide-tablet">' + Number(p.dias_estoque_un || 0).toFixed(1) +
+        '</td><td class="col-hide-tablet">' + (p.departamento || "") +
+        '</td><td class="col-hide-tablet">' + (p.marca || "") +
+        '</td><td class="col-hide-tablet">' + (p.data_ultima_entrada || "—") +
         "</td><td>" + (p.numero_pedido || "—") +
         "</td><td>" + (p.previsao_entrada || "—") +
-        '</td><td class="num">' + (p.qtd_pedida ? fmtInt(p.qtd_pedida) : "—") +
+        '</td><td class="num col-hide-mobile">' + (p.qtd_pedida ? fmtInt(p.qtd_pedida) : "—") +
         '</td><td><span class="status-badge status-' + p.status + '">' +
         (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
     )

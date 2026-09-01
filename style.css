@@ -737,6 +737,43 @@ body {
   max-width: 420px;
 }
 
+/* Lista curta de saúde (só mobile) */
+.dept-health-mobile {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+.dept-mobile-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--grey-bg);
+  border: 1px solid var(--grey-line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, outline 0.15s;
+}
+.dept-mobile-item:hover { background: #eef3fc; }
+.dept-mobile-item.active {
+  background: #d6e4ff;
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.dept-mobile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== TABLET (≤ 1100px) ========== */
 @media (max-width: 1100px) {
   .grid { grid-template-columns: 1fr; }
   .filter-bar { padding: 10px 16px; }
@@ -745,4 +782,113 @@ body {
   .status-rules { flex-direction: column; gap: 6px; }
   .donut-wrap.donut-lg { width: 320px; }
   .meta-gauge-wrap { width: 190px; }
+
+  /* Barras: só faturamento */
+  .cluster-legend .leg-vend,
+  .cluster-legend span:last-child { display: none; }
+  .track-vend { display: none !important; }
+  .cluster-row { grid-template-columns: 100px 1fr; }
+  .panel-bars h2::after { content: none; }
+
+  /* Saúde: esconde colunas secundárias */
+  .col-hide-tablet { display: none !important; }
+
+  /* Tabelas mais leves */
+  .product-table { min-width: 640px; }
+  .entrada-table { min-width: 720px; }
+
+  .topbar { padding: 14px 16px; }
+  .kpi { min-width: 110px; padding: 8px 12px; }
+  .kpi-value { font-size: 16px; }
+}
+
+/* ========== MOBILE (≤ 768px) ========== */
+@media (max-width: 768px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .brand h1 { font-size: 16px; }
+  .data-updated { font-size: 10px; }
+
+  /* KPIs prioritários: Venda Atual + Estoque */
+  .kpi-row { width: 100%; gap: 8px; }
+  .kpi-meta,
+  .kpi-falta { display: none; }
+  .kpi { flex: 1; min-width: 0; padding: 8px 10px; }
+  .kpi-value { font-size: 15px; }
+  .kpi-label { font-size: 10px; }
+
+  .filter-bar { padding: 8px 12px; }
+  .filter-label { font-size: 12px; }
+  .grid { padding: 12px; gap: 12px; }
+  .panel { padding: 12px 14px; }
+  .panel h2 { font-size: 12px; padding: 6px 10px; }
+
+  /* Donut compacto */
+  .donut-wrap.donut-lg { width: 260px; }
+  .donut-center span { font-size: 18px; }
+  .donut-center small { font-size: 10px; }
+  .legend { gap: 4px; }
+  .legend li { font-size: 12px; }
+  .legend .lg-value { font-size: 11px; }
+
+  /* Barras: só faturamento, labels menores */
+  .cluster-row { grid-template-columns: 80px 1fr; font-size: 11px; gap: 6px; }
+  .cluster-label { font-size: 11px; }
+  .cluster-val-ext { min-width: 60px; font-size: 10px; }
+  .cluster-track { height: 12px; }
+
+  /* Saúde: medidor + lista curta */
+  .dept-scroll { display: none !important; }
+  .click-hint { display: none; }
+  .dept-health-mobile {
+    display: flex;
+  }
+  .meta-gauge-wrap { width: 160px; margin-bottom: 8px; }
+  .meta-gauge-center span { font-size: 18px; }
+  .meta-gauge-legend { font-size: 11px; gap: 12px; margin-bottom: 10px; }
+
+  /* Colunas secundárias ocultas */
+  .col-hide-mobile,
+  .col-hide-tablet { display: none !important; }
+
+  .product-table { min-width: 320px; font-size: 12px; }
+  .entrada-table { min-width: 360px; font-size: 12px; }
+  .product-table th,
+  .product-table td { padding: 6px 8px; }
+
+  .table-toolbar { flex-direction: column; align-items: flex-start; }
+  .toolbar-controls { width: 100%; flex-direction: column; align-items: stretch; }
+  #search-box,
+  #search-entrada {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
+  .top-filters { width: 100%; }
+  .status-filters { width: 100%; }
+  .chip,
+  .chip-top { font-size: 11px; padding: 5px 8px; }
+
+  .status-rules { padding: 8px 10px; font-size: 11px; }
+  .pagination { flex-wrap: wrap; font-size: 12px; }
+  .pagination span { text-align: center; width: 100%; order: -1; margin-bottom: 4px; }
+
+  .btn-export { width: 100%; text-align: center; }
+}
+
+/* ========== MOBILE PEQUENO (≤ 480px) ========== */
+@media (max-width: 480px) {
+  .brand-mark { font-size: 12px; padding: 6px 8px; }
+  .brand h1 { font-size: 14px; }
+  .kpi-icon { font-size: 16px; }
+  .kpi-value { font-size: 14px; }
+  .donut-wrap.donut-lg { width: 220px; }
+  .cluster-row { grid-template-columns: 70px 1fr; }
+  .cluster-label { font-size: 10px; }
+  .dept-mobile-name { font-size: 12px; }
+  .sit-badge { font-size: 9px; padding: 2px 6px; }
 }
