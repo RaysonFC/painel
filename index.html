@@ -256,13 +256,13 @@
         <label><input type="radio" name="export-top" value="0"> Todos</label>
       </div>
 
-      <label class="modal-label">Status</label>
-      <div class="modal-options" id="export-status">
-        <label><input type="radio" name="export-status" value="Todos" checked> Todos</label>
-        <label><input type="radio" name="export-status" value="Ruptura"> ⚠️ Ruptura</label>
-        <label><input type="radio" name="export-status" value="Critico"> 🔴 Crítico</label>
-        <label><input type="radio" name="export-status" value="OK"> 🟢 OK</label>
-        <label><input type="radio" name="export-status" value="Over"> 🔵 Over</label>
+      <label class="modal-label">Status <small style="font-weight:500;color:var(--text-muted)">(pode marcar vários)</small></label>
+      <div class="modal-options modal-options-multi" id="export-status">
+        <label><input type="checkbox" name="export-status" value="Todos" checked class="export-status-all"> Todos</label>
+        <label><input type="checkbox" name="export-status" value="Ruptura" class="export-status-item"> ⚠️ Ruptura</label>
+        <label><input type="checkbox" name="export-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
+        <label><input type="checkbox" name="export-status" value="OK" class="export-status-item"> 🟢 OK</label>
+        <label><input type="checkbox" name="export-status" value="Over" class="export-status-item"> 🔵 Over</label>
       </div>
 
       <label class="modal-label">Formato</label>
@@ -288,13 +288,13 @@
     <div class="modal-body">
       <p class="modal-hint">Usa os filtros de marca/departamento/busca ativos. Previsão = 0 quando a última entrada for ≥ à previsão.</p>
 
-      <label class="modal-label">Status de estoque</label>
-      <div class="modal-options" id="export-entrada-status">
-        <label><input type="radio" name="export-entrada-status" value="Todos" checked> Todos</label>
-        <label><input type="radio" name="export-entrada-status" value="Ruptura"> ⚠️ Ruptura</label>
-        <label><input type="radio" name="export-entrada-status" value="Critico"> 🔴 Crítico</label>
-        <label><input type="radio" name="export-entrada-status" value="OK"> 🟢 OK</label>
-        <label><input type="radio" name="export-entrada-status" value="Over"> 🔵 Over</label>
+      <label class="modal-label">Status de estoque <small style="font-weight:500;color:var(--text-muted)">(pode marcar vários)</small></label>
+      <div class="modal-options modal-options-multi" id="export-entrada-status">
+        <label><input type="checkbox" name="export-entrada-status" value="Todos" checked class="export-status-all"> Todos</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Ruptura" class="export-status-item"> ⚠️ Ruptura</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
+        <label><input type="checkbox" name="export-entrada-status" value="OK" class="export-status-item"> 🟢 OK</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Over" class="export-status-item"> 🔵 Over</label>
       </div>
 
       <label class="modal-label">Pedido</label>

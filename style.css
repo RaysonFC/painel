@@ -977,8 +977,8 @@ body {
   }
   .panel h2 { font-size: 12px; padding: 6px 10px; }
 
-  .donut-wrap.donut-lg { width: min(260px, 100%); max-width: 100%; }
-  .donut-center span { font-size: 18px; }
+  .donut-wrap.donut-lg { width: min(340px, 92vw); max-width: 100%; }
+  .donut-center span { font-size: 16px; }
   .donut-center small { font-size: 10px; }
   .legend { gap: 4px; }
   .legend li { font-size: 12px; }
@@ -1075,7 +1075,9 @@ body {
   .grid { padding: var(--gutter) !important; gap: 10px; }
   .panel { padding: 10px; }
 
-  .donut-wrap.donut-lg { width: min(200px, 100%); }
+  .donut-wrap.donut-lg { width: min(300px, 94vw); max-width: 100%; }
+  .donut-center span { font-size: 14px; }
+  .donut-center small { font-size: 9px; }
   .cluster-row { grid-template-columns: 60px 1fr; }
   .cluster-label { font-size: 10px; }
   .dept-mobile-item { padding: 8px 10px; gap: 8px; }

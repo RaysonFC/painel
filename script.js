@@ -684,12 +684,48 @@ function setupTableControls() {
 }
 
 /* ---------- Exportar ---------- */
-function getExportRows(topN, statusFilter) {
-  // marca + departamento vêm do filtro central; o status do export é
-  // escolhido no próprio modal (independente do chip ativo no site)
+
+/** Lê checkboxes de status de um modal. Retorna [] = todos os status. */
+function readExportStatusChecks(containerId) {
+  const root = document.getElementById(containerId);
+  if (!root) return [];
+  const allCb = root.querySelector(".export-status-all");
+  if (allCb && allCb.checked) return [];
+  const selected = Array.from(root.querySelectorAll(".export-status-item:checked")).map(
+    (el) => el.value
+  );
+  return selected; // vazio também = todos
+}
+
+/** Liga a lógica Todos ↔ itens individuais nos checkboxes de status */
+function bindExportStatusGroup(containerId) {
+  const root = document.getElementById(containerId);
+  if (!root) return;
+  const allCb = root.querySelector(".export-status-all");
+  const items = root.querySelectorAll(".export-status-item");
+  if (!allCb) return;
+
+  allCb.addEventListener("change", () => {
+    if (allCb.checked) {
+      items.forEach((cb) => { cb.checked = false; });
+    }
+  });
+  items.forEach((cb) => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) allCb.checked = false;
+      // se nenhum item marcado, volta para Todos
+      const any = Array.from(items).some((c) => c.checked);
+      if (!any) allCb.checked = true;
+    });
+  });
+}
+
+function getExportRows(topN, statusList) {
+  // marca + departamento vêm do filtro central; status vem do modal (lista)
   let rows = filterProducts({ status: false });
-  if (statusFilter && statusFilter !== "Todos") {
-    rows = rows.filter((p) => p.status === statusFilter);
+  if (statusList && statusList.length > 0) {
+    const set = new Set(statusList);
+    rows = rows.filter((p) => set.has(p.status));
   }
   rows = [...rows].sort((a, b) => (Number(b.faturamento) || 0) - (Number(a.faturamento) || 0));
   if (topN > 0) rows = rows.slice(0, topN);
@@ -778,6 +814,8 @@ function setupExport() {
   const confirmBtn = document.getElementById("export-confirm");
   if (!modal || !openBtn) return;
 
+  bindExportStatusGroup("export-status");
+
   const open = () => { modal.hidden = false; };
   const close = () => { modal.hidden = true; };
 
@@ -790,12 +828,11 @@ function setupExport() {
 
   confirmBtn?.addEventListener("click", () => {
     const topEl = document.querySelector('input[name="export-top"]:checked');
-    const stEl = document.querySelector('input[name="export-status"]:checked');
     const fmtEl = document.querySelector('input[name="export-format"]:checked');
     const topN = Number(topEl?.value || 0);
-    const status = stEl?.value || "Todos";
+    const statusList = readExportStatusChecks("export-status");
     const format = fmtEl?.value || "csv";
-    const rows = getExportRows(topN, status);
+    const rows = getExportRows(topN, statusList);
     if (!rows.length) {
       alert("Nenhum produto para exportar com esses filtros.");
       return;
@@ -867,12 +904,19 @@ function hasPedido(p) {
  * opts.pedidoFilter: "todos" | "com" | "sem"
  */
 function getEntradaRows(opts = {}) {
+  // statusFilter: string legada, ou statusList: array de status do modal
+  const statusList = opts.statusList;
   const statusOverride = opts.statusFilter;
   const pedidoFilter = opts.pedidoFilter || "todos";
 
   let rows;
-  if (statusOverride && statusOverride !== "Todos") {
-    // marca + dept + busca; status do modal
+  if (Array.isArray(statusList)) {
+    rows = filterProducts({ status: false, vendasStatus: false });
+    if (statusList.length > 0) {
+      const set = new Set(statusList);
+      rows = rows.filter((p) => set.has(p.status));
+    }
+  } else if (statusOverride && statusOverride !== "Todos") {
     rows = filterProducts({ status: false, vendasStatus: false }).filter(
       (p) => p.status === statusOverride
     );
@@ -1070,6 +1114,8 @@ function setupEntradaTable() {
   const open = () => { modal.hidden = false; };
   const close = () => { modal.hidden = true; };
 
+  bindExportStatusGroup("export-entrada-status");
+
   openBtn.addEventListener("click", open);
   closeBtn?.addEventListener("click", close);
   cancelBtn?.addEventListener("click", close);
@@ -1078,13 +1124,12 @@ function setupEntradaTable() {
   });
 
   confirmBtn?.addEventListener("click", () => {
-    const stEl = document.querySelector('input[name="export-entrada-status"]:checked');
     const pedEl = document.querySelector('input[name="export-entrada-pedido"]:checked');
     const fmtEl = document.querySelector('input[name="export-entrada-format"]:checked');
-    const statusFilter = stEl?.value || "Todos";
+    const statusList = readExportStatusChecks("export-entrada-status");
     const pedidoFilter = pedEl?.value || "todos";
     const format = fmtEl?.value || "csv";
-    const rows = getEntradaRows({ statusFilter, pedidoFilter });
+    const rows = getEntradaRows({ statusList, pedidoFilter });
     if (!rows.length) {
       alert("Nenhum item para exportar com esses filtros.");
       return;
