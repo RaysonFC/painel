@@ -189,6 +189,7 @@
     <div class="table-toolbar">
       <h2>ENTRADAS / PEDIDOS</h2>
       <div class="toolbar-controls">
+        <button type="button" class="btn-export" id="btn-export-entrada">⬇ Exportar estoque</button>
         <input type="search" id="search-entrada" placeholder="Buscar COD, produto, marca, depto ou nº pedido...">
         <div class="status-filters" id="entrada-status-filters">
           <button class="chip chip-all active" data-status="Todos">Todos <span class="chip-count" id="count-Todos"></span></button>
@@ -214,7 +215,7 @@
           <tr>
             <th data-ekey="cod" class="col-cod">COD</th>
             <th data-ekey="descricao">Descrição</th>
-            <th data-ekey="estoque_un" class="num col-hide-mobile">Estoque UN</th>
+            <th data-ekey="estoque_un" class="num">Estoque UN</th>
             <th data-ekey="dias_estoque_un" class="num col-hide-tablet">Dias Estoque</th>
             <th data-ekey="departamento" class="col-hide-tablet">Departamento</th>
             <th data-ekey="marca" class="col-hide-tablet">Marca</th>

@@ -400,7 +400,7 @@ function renderDeptHealth(deptHealth) {
     tbody.querySelectorAll("tr.dept-row").forEach(bindDeptClick);
   }
 
-  // Lista curta para mobile: departamento + situação (clicável)
+  // Lista curta para mobile: departamento + faturamento + situação (clicável)
   const mobileList = document.getElementById("dept-health-mobile");
   if (mobileList) {
     mobileList.innerHTML = deptHealth
@@ -411,7 +411,10 @@ function renderDeptHealth(deptHealth) {
         const deptAttr = (r.departamento || "").replace(/"/g, "&quot;");
         return (
           '<li class="dept-mobile-item' + active + '" data-dept="' + deptAttr + '">' +
-          '<span class="dept-mobile-name">' + (r.departamento || "") + "</span>" +
+          '<div class="dept-mobile-left">' +
+            '<span class="dept-mobile-name">' + (r.departamento || "") + "</span>" +
+            '<span class="dept-mobile-fat">' + fmtMoney(r.faturamento) + "</span>" +
+          "</div>" +
           '<span class="sit-badge ' + cls + '">' + (SITUACAO_LABELS[sit] || sit) + "</span>" +
           "</li>"
         );
@@ -872,7 +875,7 @@ function renderEntradaTable() {
       (p) =>
         '<tr><td class="col-cod">' + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
-        '</td><td class="num col-hide-mobile">' + fmtInt(p.estoque_un) +
+        '</td><td class="num">' + fmtInt(p.estoque_un) +
         '</td><td class="num col-hide-tablet">' + Number(p.dias_estoque_un || 0).toFixed(1) +
         '</td><td class="col-hide-tablet">' + (p.departamento || "") +
         '</td><td class="col-hide-tablet">' + (p.marca || "") +
@@ -902,6 +905,37 @@ function renderEntradaTable() {
   }
 }
 
+function exportEntradaCsv() {
+  const rows = getEntradaRows();
+  if (!rows.length) {
+    alert("Nenhum item com nº de pedido para exportar.");
+    return;
+  }
+  const headers = [
+    "COD", "Descrição", "Estoque UN", "Dias Estoque", "Departamento", "Marca",
+    "Data Última Entrada", "Nº Pedido", "Previsão de Entrada", "Qtd. Pedida", "Status",
+  ];
+  const lines = [headers.join(";")];
+  rows.forEach((p) => {
+    lines.push([
+      escapeCsv(p.cod),
+      escapeCsv(p.descricao),
+      escapeCsv(p.estoque_un),
+      escapeCsv(Number(p.dias_estoque_un || 0).toFixed(1)),
+      escapeCsv(p.departamento),
+      escapeCsv(p.marca),
+      escapeCsv(p.data_ultima_entrada),
+      escapeCsv(p.numero_pedido),
+      escapeCsv(p.previsao_entrada),
+      escapeCsv(p.qtd_pedida),
+      escapeCsv(STATUS_LABELS[p.status] || p.status),
+    ].join(";"));
+  });
+  const content = "\uFEFF" + lines.join("\n");
+  const stamp = (data.generated_at || "").replace(/[/: ]/g, "-") || "export";
+  downloadBlob("entradas_estoque_" + stamp + ".csv", content, "text/csv;charset=utf-8");
+}
+
 function setupEntradaTable() {
   const search = document.getElementById("search-entrada");
   if (search) {
@@ -924,6 +958,10 @@ function setupEntradaTable() {
       renderEntradaTable();
     });
   });
+  const exportBtn = document.getElementById("btn-export-entrada");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", exportEntradaCsv);
+  }
 }
 
 

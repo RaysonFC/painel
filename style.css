@@ -764,6 +764,13 @@ body {
   outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
+.dept-mobile-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
 .dept-mobile-name {
   font-size: 13px;
   font-weight: 600;
@@ -771,6 +778,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.dept-mobile-fat {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
 }
 
 /* ========== TABLET (≤ 1100px) ========== */
