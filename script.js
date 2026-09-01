@@ -819,15 +819,76 @@ function updateStatusCounts() {
   });
 }
 
-/* ---------- ENTRADAS / PEDIDOS (só com nº pedido) ---------- */
+/* ---------- ENTRADAS / PEDIDOS ---------- */
 const ENTRADA_PAGE_SIZE = 20;
 
-function getEntradaRows() {
-  // marca + dept + status; apenas com número de pedido preenchido
-  let rows = filterProducts({ vendasStatus: false }).filter((p) => {
-    const n = String(p.numero_pedido || "").trim();
-    return n !== "" && n !== "0";
-  });
+/** Converte dd/mm/yyyy → timestamp (ms) ou null se inválida */
+function parseBRDate(s) {
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+}
+
+/**
+ * Regra de Previsão de Entrada:
+ * - se Data Última Entrada ≥ Previsão de Entrada → "0"
+ * - se Data Última Entrada < Previsão → mantém a data
+ * - se faltar alguma data válida → mantém o valor original ou "0"
+ */
+function displayPrevisao(p) {
+  const ultima = parseBRDate(p.data_ultima_entrada);
+  const prev = parseBRDate(p.previsao_entrada);
+  if (ultima != null && prev != null) {
+    if (ultima >= prev) return "0";
+    return p.previsao_entrada || "0";
+  }
+  // SEM PEDIDO / texto sem data
+  const raw = String(p.previsao_entrada || "").trim();
+  if (!raw || raw.toUpperCase() === "SEM PEDIDO") return "0";
+  return raw;
+}
+
+/** Nº pedido vazio ou inválido → "0" */
+function displayPedido(p) {
+  const n = String(p.numero_pedido || "").trim();
+  if (!n || n === "0" || n === "0.0") return "0";
+  return n;
+}
+
+function hasPedido(p) {
+  const n = String(p.numero_pedido || "").trim();
+  return !!n && n !== "0" && n !== "0.0";
+}
+
+/**
+ * Linhas da tabela ENTRADAS.
+ * opts.statusFilter: override do status (para export)
+ * opts.pedidoFilter: "todos" | "com" | "sem"
+ */
+function getEntradaRows(opts = {}) {
+  const statusOverride = opts.statusFilter;
+  const pedidoFilter = opts.pedidoFilter || "todos";
+
+  let rows;
+  if (statusOverride && statusOverride !== "Todos") {
+    // marca + dept + busca; status do modal
+    rows = filterProducts({ status: false, vendasStatus: false }).filter(
+      (p) => p.status === statusOverride
+    );
+  } else if (statusOverride === "Todos") {
+    rows = filterProducts({ status: false, vendasStatus: false });
+  } else {
+    // usa status do site (chips)
+    rows = filterProducts({ vendasStatus: false });
+  }
+
+  if (pedidoFilter === "com") {
+    rows = rows.filter(hasPedido);
+  } else if (pedidoFilter === "sem") {
+    rows = rows.filter((p) => !hasPedido(p));
+  }
+
   if (state.entradaSearch) {
     const q = state.entradaSearch.toLowerCase();
     rows = rows.filter(
@@ -841,19 +902,28 @@ function getEntradaRows() {
         String(p.previsao_entrada || "").toLowerCase().includes(q)
     );
   }
+
   const key = state.entradaSortKey;
   const dir = state.entradaSortDir === "asc" ? 1 : -1;
   rows = [...rows].sort((a, b) => {
     let va = a[key] ?? "";
     let vb = b[key] ?? "";
     if (key === "data_ultima_entrada" || key === "previsao_entrada") {
-      const parse = (s) => {
-        if (!s) return 0;
-        const m = String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if (!m) return 0;
-        return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
-      };
+      const parse = (s) => parseBRDate(s) || 0;
+      // para previsão, ordenar pelo valor exibido (0 se última ≥ previsão)
+      if (key === "previsao_entrada") {
+        const da = displayPrevisao(a);
+        const db = displayPrevisao(b);
+        const ta = da === "0" ? 0 : parse(da);
+        const tb = db === "0" ? 0 : parse(db);
+        return (ta - tb) * dir;
+      }
       return (parse(va) - parse(vb)) * dir;
+    }
+    if (key === "numero_pedido") {
+      const na = hasPedido(a) ? String(a.numero_pedido) : "0";
+      const nb = hasPedido(b) ? String(b.numero_pedido) : "0";
+      return na.localeCompare(nb, "pt-BR", { numeric: true }) * dir;
     }
     if (typeof va === "string") return String(va).localeCompare(String(vb), "pt-BR") * dir;
     return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
@@ -871,8 +941,11 @@ function renderEntradaTable() {
   const pageRows = rows.slice(startIdx, startIdx + ENTRADA_PAGE_SIZE);
 
   tbody.innerHTML = pageRows
-    .map(
-      (p) =>
+    .map((p) => {
+      const pedido = displayPedido(p);
+      const previsao = displayPrevisao(p);
+      const qtd = p.qtd_pedida ? fmtInt(p.qtd_pedida) : "0";
+      return (
         '<tr><td class="col-cod">' + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
         '</td><td class="num">' + fmtInt(p.estoque_un) +
@@ -880,12 +953,13 @@ function renderEntradaTable() {
         '</td><td class="col-hide-tablet">' + (p.departamento || "") +
         '</td><td class="col-hide-tablet">' + (p.marca || "") +
         '</td><td class="col-hide-tablet">' + (p.data_ultima_entrada || "—") +
-        "</td><td>" + (p.numero_pedido || "—") +
-        "</td><td>" + (p.previsao_entrada || "—") +
-        '</td><td class="num col-hide-mobile">' + (p.qtd_pedida ? fmtInt(p.qtd_pedida) : "—") +
+        "</td><td>" + pedido +
+        "</td><td>" + previsao +
+        '</td><td class="num col-hide-mobile">' + qtd +
         '</td><td><span class="status-badge status-' + p.status + '">' +
         (STATUS_LABELS[p.status] || p.status) + "</span></td></tr>"
-    )
+      );
+    })
     .join("");
 
   const el = document.getElementById("entrada-pagination");
@@ -905,12 +979,7 @@ function renderEntradaTable() {
   }
 }
 
-function exportEntradaCsv() {
-  const rows = getEntradaRows();
-  if (!rows.length) {
-    alert("Nenhum item com nº de pedido para exportar.");
-    return;
-  }
+function exportEntradaCsv(rows) {
   const headers = [
     "COD", "Descrição", "Estoque UN", "Dias Estoque", "Departamento", "Marca",
     "Data Última Entrada", "Nº Pedido", "Previsão de Entrada", "Qtd. Pedida", "Status",
@@ -925,15 +994,45 @@ function exportEntradaCsv() {
       escapeCsv(p.departamento),
       escapeCsv(p.marca),
       escapeCsv(p.data_ultima_entrada),
-      escapeCsv(p.numero_pedido),
-      escapeCsv(p.previsao_entrada),
-      escapeCsv(p.qtd_pedida),
+      escapeCsv(displayPedido(p)),
+      escapeCsv(displayPrevisao(p)),
+      escapeCsv(p.qtd_pedida || 0),
       escapeCsv(STATUS_LABELS[p.status] || p.status),
     ].join(";"));
   });
   const content = "\uFEFF" + lines.join("\n");
   const stamp = (data.generated_at || "").replace(/[/: ]/g, "-") || "export";
   downloadBlob("entradas_estoque_" + stamp + ".csv", content, "text/csv;charset=utf-8");
+}
+
+function exportEntradaXls(rows) {
+  let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
+  html +=
+    "<tr><th>COD</th><th>Descrição</th><th>Estoque UN</th><th>Dias Estoque</th>" +
+    "<th>Departamento</th><th>Marca</th><th>Data Última Entrada</th>" +
+    "<th>Nº Pedido</th><th>Previsão de Entrada</th><th>Qtd. Pedida</th><th>Status</th></tr>";
+  rows.forEach((p) => {
+    html +=
+      "<tr><td>" + (p.cod || "") +
+      "</td><td>" + (p.descricao || "") +
+      "</td><td>" + (p.estoque_un || 0) +
+      "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
+      "</td><td>" + (p.departamento || "") +
+      "</td><td>" + (p.marca || "") +
+      "</td><td>" + (p.data_ultima_entrada || "") +
+      "</td><td>" + displayPedido(p) +
+      "</td><td>" + displayPrevisao(p) +
+      "</td><td>" + (p.qtd_pedida || 0) +
+      "</td><td>" + (STATUS_LABELS[p.status] || p.status) +
+      "</td></tr>";
+  });
+  html += "</table></body></html>";
+  const stamp = (data.generated_at || "").replace(/[/: ]/g, "-") || "export";
+  downloadBlob(
+    "entradas_estoque_" + stamp + ".xls",
+    html,
+    "application/vnd.ms-excel;charset=utf-8"
+  );
 }
 
 function setupEntradaTable() {
@@ -952,16 +1051,48 @@ function setupEntradaTable() {
         state.entradaSortDir = state.entradaSortDir === "asc" ? "desc" : "asc";
       } else {
         state.entradaSortKey = key;
-        state.entradaSortDir = (key === "data_ultima_entrada" || key === "previsao_entrada") ? "desc" : "asc";
+        state.entradaSortDir =
+          key === "data_ultima_entrada" || key === "previsao_entrada" ? "desc" : "asc";
       }
       state.entradaPage = 1;
       renderEntradaTable();
     });
   });
-  const exportBtn = document.getElementById("btn-export-entrada");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", exportEntradaCsv);
-  }
+
+  // Modal de exportação de estoque
+  const modal = document.getElementById("export-entrada-modal");
+  const openBtn = document.getElementById("btn-export-entrada");
+  const closeBtn = document.getElementById("export-entrada-close");
+  const cancelBtn = document.getElementById("export-entrada-cancel");
+  const confirmBtn = document.getElementById("export-entrada-confirm");
+  if (!modal || !openBtn) return;
+
+  const open = () => { modal.hidden = false; };
+  const close = () => { modal.hidden = true; };
+
+  openBtn.addEventListener("click", open);
+  closeBtn?.addEventListener("click", close);
+  cancelBtn?.addEventListener("click", close);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
+
+  confirmBtn?.addEventListener("click", () => {
+    const stEl = document.querySelector('input[name="export-entrada-status"]:checked');
+    const pedEl = document.querySelector('input[name="export-entrada-pedido"]:checked');
+    const fmtEl = document.querySelector('input[name="export-entrada-format"]:checked');
+    const statusFilter = stEl?.value || "Todos";
+    const pedidoFilter = pedEl?.value || "todos";
+    const format = fmtEl?.value || "csv";
+    const rows = getEntradaRows({ statusFilter, pedidoFilter });
+    if (!rows.length) {
+      alert("Nenhum item para exportar com esses filtros.");
+      return;
+    }
+    if (format === "xlsx") exportEntradaXls(rows);
+    else exportEntradaCsv(rows);
+    close();
+  });
 }
 
 

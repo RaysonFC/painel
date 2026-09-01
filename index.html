@@ -208,7 +208,8 @@
       <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
       <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
       <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
-      <span class="rule-item rule-hint">Clique no status para filtrar o site inteiro · só produtos com nº pedido</span>
+      <span class="rule-item rule-hint">Clique no status para filtrar o site inteiro · itens sem pedido aparecem com Nº Pedido = 0</span>
+      <span class="rule-item rule-hint">Previsão de Entrada = 0 quando a Data Última Entrada for ≥ à previsão</span>
     </div>
 
     <div class="table-scroll product-scroll entrada-scroll">
@@ -237,7 +238,7 @@
 
 </main>
 
-<!-- Modal exportar -->
+<!-- Modal exportar produtos -->
 <div class="modal-overlay" id="export-modal" hidden>
   <div class="modal" role="dialog" aria-labelledby="export-title">
     <div class="modal-header">
@@ -273,6 +274,45 @@
     <div class="modal-footer">
       <button type="button" class="btn-secondary" id="export-cancel">Cancelar</button>
       <button type="button" class="btn-primary" id="export-confirm">Baixar arquivo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal exportar ENTRADAS / ESTOQUE -->
+<div class="modal-overlay" id="export-entrada-modal" hidden>
+  <div class="modal" role="dialog" aria-labelledby="export-entrada-title">
+    <div class="modal-header">
+      <h3 id="export-entrada-title">Exportar estoque / entradas</h3>
+      <button type="button" class="modal-close" id="export-entrada-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Usa os filtros de marca/departamento/busca ativos. Previsão = 0 quando a última entrada for ≥ à previsão.</p>
+
+      <label class="modal-label">Status de estoque</label>
+      <div class="modal-options" id="export-entrada-status">
+        <label><input type="radio" name="export-entrada-status" value="Todos" checked> Todos</label>
+        <label><input type="radio" name="export-entrada-status" value="Ruptura"> ⚠️ Ruptura</label>
+        <label><input type="radio" name="export-entrada-status" value="Critico"> 🔴 Crítico</label>
+        <label><input type="radio" name="export-entrada-status" value="OK"> 🟢 OK</label>
+        <label><input type="radio" name="export-entrada-status" value="Over"> 🔵 Over</label>
+      </div>
+
+      <label class="modal-label">Pedido</label>
+      <div class="modal-options" id="export-entrada-pedido">
+        <label><input type="radio" name="export-entrada-pedido" value="todos" checked> Todos (com e sem pedido)</label>
+        <label><input type="radio" name="export-entrada-pedido" value="com"> Somente com nº pedido</label>
+        <label><input type="radio" name="export-entrada-pedido" value="sem"> Somente sem pedido (0)</label>
+      </div>
+
+      <label class="modal-label">Formato</label>
+      <div class="modal-options" id="export-entrada-format">
+        <label><input type="radio" name="export-entrada-format" value="csv" checked> CSV (Excel)</label>
+        <label><input type="radio" name="export-entrada-format" value="xlsx"> Excel (.xls)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="export-entrada-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="export-entrada-confirm">Baixar arquivo</button>
     </div>
   </div>
 </div>
