@@ -48,10 +48,16 @@ let state = {
 };
 
 const ALL_MARCAS = (() => {
-  const set = new Set();
+  const faturamentoPorMarca = new Map();
   (data.produtos || []).forEach((p) => {
     const m = (p.marca || "").trim();
-    if (m) set.add(m);
+    if (!m) return;
+    const atual = faturamentoPorMarca.get(m) || 0;
+    faturamentoPorMarca.set(m, atual + Number(p.faturamento || 0));
+  });
+  const set = new Set();
+  faturamentoPorMarca.forEach((total, marca) => {
+    if (total > 0) set.add(marca);
   });
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
 })();
