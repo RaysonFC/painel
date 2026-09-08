@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Atualiza data.js a partir de Geral.xlsx (aba COMPARAT_FOOD)."""
+"""Atualiza food/data.js e varejo/data.js a partir de Geral.xlsx.
+
+  Food Service   <- aba COMPARAT_FOOD              -> food/data.js
+  Estoque Varejo <- aba Estoque (CATEGORIA=VAREJO) -> varejo/data.js
+  Pedidos        <- aba Pedidos - 8151             -> campo pedidos no varejo/data.js
+"""
 import json
 import sys
 from datetime import datetime, timezone, timedelta
@@ -14,11 +19,22 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC = BASE_DIR / "Geral.xlsx"
-SHEET = "COMPARAT_FOOD"
-OUT_FILE = BASE_DIR / "data.js"
 META_MENSAL = 644633
 
-COLS = {
+BR_TZ = timezone(timedelta(hours=-3))
+
+
+def generated_at_now():
+    return datetime.now(BR_TZ).strftime("%d/%m/%Y %H:%M:%S")
+
+
+# =========================================================
+#  FOOD SERVICE  (aba COMPARAT_FOOD)
+# =========================================================
+FOOD_SHEET = "COMPARAT_FOOD"
+FOOD_OUT = BASE_DIR / "food" / "data.js"
+
+FOOD_COLS = {
     "COD": "cod",
     "DESCRIÇÃO": "descricao",
     "MARCA": "marca",
@@ -43,7 +59,7 @@ COLS = {
 }
 
 
-def classify_status_estoque(row):
+def food_classify_status_estoque(row):
     estoque = row["estoque_un"] or 0
     dias = row["dias_estoque_un"] or 0
     if estoque == 0:
@@ -55,7 +71,7 @@ def classify_status_estoque(row):
     return "Over"
 
 
-def classify_status_vendas(atual_raw, m1_raw, m2_raw, m3_raw):
+def food_classify_status_vendas(atual_raw, m1_raw, m2_raw, m3_raw):
     media_3m = (
         (0 if pd.isna(m1_raw) else m1_raw)
         + (0 if pd.isna(m2_raw) else m2_raw)
@@ -71,7 +87,7 @@ def classify_status_vendas(atual_raw, m1_raw, m2_raw, m3_raw):
     return "Estavel"
 
 
-def classify_situacao(vendas_un, media_mensal_un):
+def food_classify_situacao(vendas_un, media_mensal_un):
     v = float(vendas_un or 0)
     m = float(media_mensal_un or 0)
     if v <= 0:
@@ -113,20 +129,20 @@ def clean_pedido(x):
         return "" if s in ("0", "0.0") else s
 
 
-def main():
-    if not SRC.exists():
-        print(f"ERRO: Arquivo não encontrado: {SRC}")
-        sys.exit(1)
+def clean_cod(x):
+    return str(int(x)) if isinstance(x, float) and x == int(x) else str(x)
 
-    print(f"Lendo: {SRC.name}  |  aba: {SHEET}")
+
+def build_food():
+    print(f"[FOOD] Lendo: {SRC.name}  |  aba: {FOOD_SHEET}")
     try:
-        df = pd.read_excel(SRC, sheet_name=SHEET, usecols=list(COLS.keys()))
+        df = pd.read_excel(SRC, sheet_name=FOOD_SHEET, usecols=list(FOOD_COLS.keys()))
     except ValueError as e:
-        print(f"ERRO ao ler a planilha: {e}")
-        print("Colunas esperadas:", ", ".join(COLS.keys()))
+        print(f"[FOOD] ERRO ao ler a planilha: {e}")
+        print("Colunas esperadas:", ", ".join(FOOD_COLS.keys()))
         sys.exit(1)
 
-    df = df.rename(columns=COLS)
+    df = df.rename(columns=FOOD_COLS)
     df = df.dropna(subset=["cod"])
     df["marca"] = df["marca"].fillna("")
     df["departamento"] = df["departamento"].fillna("OUTROS")
@@ -137,7 +153,7 @@ def main():
     raw_m3 = pd.to_numeric(df["vendas_m3_un"], errors="coerce")
 
     df["status_vendas"] = [
-        classify_status_vendas(a, m1, m2, m3)
+        food_classify_status_vendas(a, m1, m2, m3)
         for a, m1, m2, m3 in zip(raw_atual, raw_m1, raw_m2, raw_m3)
     ]
 
@@ -153,18 +169,16 @@ def main():
     df["numero_pedido"] = df["numero_pedido"].apply(clean_pedido)
     df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
     df["previsao_entrada"] = df["previsao_entrada"].apply(fmt_date)
-    df["status"] = df.apply(classify_status_estoque, axis=1)
+    df["status"] = df.apply(food_classify_status_estoque, axis=1)
     df["situacao"] = [
-        classify_situacao(v, m)
+        food_classify_situacao(v, m)
         for v, m in zip(df["vendas_un"], df["media_mensal_un"])
     ]
     df["pct_meta"] = df.apply(
         lambda r: (r["vendas_un"] / r["media_mensal_un"]) if r["media_mensal_un"] else 0,
         axis=1,
     )
-    df["cod"] = df["cod"].apply(
-        lambda x: str(int(x)) if isinstance(x, float) and x == int(x) else str(x)
-    )
+    df["cod"] = df["cod"].apply(clean_cod)
 
     produtos = df[[
         "cod", "descricao", "marca", "departamento", "faturamento",
@@ -186,11 +200,7 @@ def main():
 
     status_summary = (
         df.groupby("status")
-        .agg(
-            qtd_produtos=("cod", "count"),
-            estoque_un=("estoque_un", "sum"),
-            faturamento=("faturamento", "sum"),
-        )
+        .agg(qtd_produtos=("cod", "count"), estoque_un=("estoque_un", "sum"), faturamento=("faturamento", "sum"))
         .reset_index()
         .to_dict(orient="records")
     )
@@ -209,30 +219,24 @@ def main():
     dept_summary = (
         df.groupby("departamento")
         .agg(
-            faturamento=("faturamento", "sum"),
-            vendas_un=("vendas_un", "sum"),
-            media_mensal_un=("media_mensal_un", "sum"),
-            giro_dia_un=("giro_dia_un", "sum"),
+            faturamento=("faturamento", "sum"), vendas_un=("vendas_un", "sum"),
+            media_mensal_un=("media_mensal_un", "sum"), giro_dia_un=("giro_dia_un", "sum"),
             estoque_un=("estoque_un", "sum"),
         )
         .reset_index()
         .sort_values("faturamento", ascending=False)
     )
     dept_summary["pct_meta"] = dept_summary.apply(
-        lambda r: (r["vendas_un"] / r["media_mensal_un"]) if r["media_mensal_un"] else 0,
-        axis=1,
+        lambda r: (r["vendas_un"] / r["media_mensal_un"]) if r["media_mensal_un"] else 0, axis=1
     )
     dept_summary["situacao"] = [
-        classify_situacao(v, m)
+        food_classify_situacao(v, m)
         for v, m in zip(dept_summary["vendas_un"], dept_summary["media_mensal_un"])
     ]
     dept_summary = dept_summary.to_dict(orient="records")
 
-    br_tz = timezone(timedelta(hours=-3))
-    generated_at = datetime.now(br_tz).strftime("%d/%m/%Y %H:%M:%S")
-
     output = {
-        "generated_at": generated_at,
+        "generated_at": generated_at_now(),
         "kpis": kpis,
         "status_summary": status_summary,
         "vendas_status_summary": vendas_status_summary,
@@ -240,16 +244,205 @@ def main():
         "produtos": produtos,
     }
 
-    with open(OUT_FILE, "w", encoding="utf-8") as f:
+    FOOD_OUT.parent.mkdir(parents=True, exist_ok=True)
+    with open(FOOD_OUT, "w", encoding="utf-8") as f:
         f.write("const DASHBOARD_DATA = ")
         json.dump(output, f, ensure_ascii=False)
         f.write(";\n")
 
-    com_pedido = sum(1 for p in produtos if p.get("numero_pedido"))
-    print(f"OK! {OUT_FILE.name} atualizado com {len(produtos)} produtos ({com_pedido} com nº pedido).")
-    print(f"   Gerado em:  {generated_at}")
-    print(f"   Venda atual: R$ {venda_atual:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    print(f"   Estoque UN:  {kpis['estoque_total_un']:,}".replace(",", "."))
+    print(f"[FOOD] OK! {FOOD_OUT.relative_to(BASE_DIR)} atualizado com {len(produtos)} produtos.")
+    print(f"        Venda atual: R$ {venda_atual:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+
+# =========================================================
+#  ESTOQUE VAREJO  (aba Estoque, CATEGORIA = VAREJO)
+# =========================================================
+VAREJO_SHEET = "Estoque"
+VAREJO_OUT = BASE_DIR / "varejo" / "data.js"
+VAREJO_CATEGORIA = "VAREJO"
+
+VAREJO_COLS = {
+    "CODPROD": "cod",
+    "DESCRIÇÃO": "descricao",
+    "MARCA": "marca",
+    "DEPARTAMENTO": "departamento",
+    "CATEGORIA": "categoria",
+    "ESTOQUEGERALUN": "estoque_un",
+    "ESTOQUEGERCX": "estoque_cx",
+    "VENDMESCX": "vendas_cx",
+    "VENDMESUN": "vendas_un",
+    "PVENDA": "pvenda",
+    "CMV": "cmv",
+    "DTULTENT": "data_ultima_entrada",
+    "MÉDIA MENSAL UN": "media_mensal_un",
+    "GIRO DIA UN": "giro_dia_un",
+    "GIRO SEMANA UN": "giro_semana_un",
+}
+
+# Pedidos em trânsito (aba Pedidos - 8151)
+PEDIDOS_SHEET = "Pedidos - 8151"
+PEDIDOS_COLS = {
+    "Cód. Produto": "cod",
+    "Descrição Produto": "descricao",
+    "Marcas": "marca",
+    "Número Pedido": "numero_pedido",
+    "Qt. Pedida": "qtd_pedida",
+    "Qt. Entregue": "qtd_entregue",
+    "Saldo Pendent": "saldo_pendente",
+    "Valor Pendente": "valor_pendente",
+    "Dt. Última Entrada": "data_ultima_entrada",
+    "Previsão Entrega": "previsao_entrada",
+}
+
+
+def varejo_classify_status(estoque_un, giro_dia_un, dias):
+    estoque_un = estoque_un or 0
+    giro_dia_un = giro_dia_un or 0
+    dias = dias or 0
+    if estoque_un <= 0:
+        return "Ruptura"
+    if giro_dia_un <= 0:
+        return "SemGiro"
+    if dias < 20:
+        return "Critico"
+    if dias <= 60:
+        return "OK"
+    return "Over"
+
+
+def build_varejo():
+    print(f"[VAREJO] Lendo: {SRC.name}  |  aba: {VAREJO_SHEET}")
+    try:
+        df = pd.read_excel(SRC, sheet_name=VAREJO_SHEET, usecols=list(VAREJO_COLS.keys()))
+    except ValueError as e:
+        print(f"[VAREJO] ERRO ao ler a planilha: {e}")
+        print("Colunas esperadas:", ", ".join(VAREJO_COLS.keys()))
+        sys.exit(1)
+
+    df = df.rename(columns=VAREJO_COLS)
+    df = df.dropna(subset=["cod"])
+    df = df[df["categoria"].fillna("").str.upper() == VAREJO_CATEGORIA].copy()
+    df["marca"] = df["marca"].fillna("")
+    df["departamento"] = df["departamento"].fillna("OUTROS")
+
+    for c in [
+        "estoque_un", "estoque_cx", "vendas_cx", "vendas_un", "pvenda", "cmv",
+        "media_mensal_un", "giro_dia_un", "giro_semana_un",
+    ]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+
+    df["dias_estoque_un"] = df.apply(
+        lambda r: (r["estoque_un"] / r["giro_dia_un"]) if r["giro_dia_un"] else 0, axis=1
+    )
+    df["valor_estoque"] = df["estoque_un"] * df["pvenda"]
+    df["status"] = [
+        varejo_classify_status(e, g, d)
+        for e, g, d in zip(df["estoque_un"], df["giro_dia_un"], df["dias_estoque_un"])
+    ]
+    df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
+    df["cod"] = df["cod"].apply(clean_cod)
+
+    produtos = df[[
+        "cod", "descricao", "marca", "departamento",
+        "estoque_un", "estoque_cx", "vendas_cx", "vendas_un",
+        "media_mensal_un", "giro_dia_un", "giro_semana_un",
+        "pvenda", "cmv", "valor_estoque", "dias_estoque_un",
+        "status", "data_ultima_entrada",
+    ]].to_dict(orient="records")
+
+    valor_estoque_total = round(float(df["valor_estoque"].sum()), 2)
+    kpis = {
+        "estoque_total_un": int(df["estoque_un"].sum()),
+        "valor_estoque": valor_estoque_total,
+        "qtd_produtos": int(df["cod"].nunique()),
+        "ruptura": int((df["status"] == "Ruptura").sum()),
+        "sem_giro": int((df["status"] == "SemGiro").sum()),
+    }
+
+    status_summary = (
+        df.groupby("status")
+        .agg(qtd_produtos=("cod", "count"), estoque_un=("estoque_un", "sum"), valor_estoque=("valor_estoque", "sum"))
+        .reset_index()
+        .to_dict(orient="records")
+    )
+
+    dept_summary = (
+        df.groupby("departamento")
+        .agg(
+            valor_estoque=("valor_estoque", "sum"), estoque_un=("estoque_un", "sum"),
+            vendas_un=("vendas_un", "sum"), giro_dia_un=("giro_dia_un", "sum"),
+        )
+        .reset_index()
+        .sort_values("valor_estoque", ascending=False)
+        .to_dict(orient="records")
+    )
+
+    # ---------- Pedidos em trânsito (Pedidos - 8151) ----------
+    pedidos = []
+    try:
+        print(f"[VAREJO] Lendo pedidos: {SRC.name}  |  aba: {PEDIDOS_SHEET}")
+        pdf = pd.read_excel(SRC, sheet_name=PEDIDOS_SHEET, usecols=list(PEDIDOS_COLS.keys()))
+        pdf = pdf.rename(columns=PEDIDOS_COLS)
+        pdf = pdf.dropna(subset=["cod"])
+        for c in ["qtd_pedida", "qtd_entregue", "saldo_pendente", "valor_pendente"]:
+            pdf[c] = pd.to_numeric(pdf[c], errors="coerce").fillna(0)
+        pdf = pdf[pdf["saldo_pendente"] > 0].copy()
+        pdf["cod"] = pdf["cod"].apply(clean_cod)
+        pdf["marca"] = pdf["marca"].fillna("")
+        pdf["numero_pedido"] = pdf["numero_pedido"].apply(clean_pedido)
+        pdf["descricao"] = pdf["descricao"].fillna("")
+
+        raw_ult = pd.to_datetime(pdf["data_ultima_entrada"], errors="coerce")
+        raw_prev = pd.to_datetime(pdf["previsao_entrada"], errors="coerce")
+        show_prev = (raw_prev.notna()) & (raw_ult.isna() | (raw_ult < raw_prev))
+        pdf["data_ultima_entrada"] = raw_ult.apply(
+            lambda x: x.strftime("%d/%m/%Y") if pd.notna(x) else ""
+        )
+        pdf["previsao_entrada"] = [
+            (p.strftime("%d/%m/%Y") if show and pd.notna(p) else "")
+            for p, show in zip(raw_prev, show_prev)
+        ]
+
+        pedidos = pdf[[
+            "cod", "descricao", "marca", "numero_pedido",
+            "qtd_pedida", "qtd_entregue", "saldo_pendente", "valor_pendente",
+            "data_ultima_entrada", "previsao_entrada",
+        ]].sort_values("valor_pendente", ascending=False).to_dict(orient="records")
+        print(f"[VAREJO] Pedidos em trânsito: {len(pedidos)} linhas com saldo pendente > 0.")
+    except Exception as e:
+        print(f"[VAREJO] Aviso: não foi possível carregar pedidos ({e}). Continuando sem pedidos.")
+
+    output = {
+        "generated_at": generated_at_now(),
+        "kpis": kpis,
+        "status_summary": status_summary,
+        "dept_summary": dept_summary,
+        "produtos": produtos,
+        "pedidos": pedidos,
+    }
+
+    VAREJO_OUT.parent.mkdir(parents=True, exist_ok=True)
+    with open(VAREJO_OUT, "w", encoding="utf-8") as f:
+        f.write("const DASHBOARD_DATA = ")
+        json.dump(output, f, ensure_ascii=False)
+        f.write(";\n")
+
+    print(f"[VAREJO] OK! {VAREJO_OUT.relative_to(BASE_DIR)} atualizado com {len(produtos)} produtos.")
+    print(f"          Valor de estoque: R$ {valor_estoque_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    print(f"          Pedidos em trânsito: {len(pedidos)}")
+
+
+def main():
+    if not SRC.exists():
+        print(f"ERRO: Arquivo não encontrado: {SRC}")
+        sys.exit(1)
+    try:
+        build_food()
+    except Exception as e:
+        print(f"[FOOD] Aviso: falha ao gerar Food Service ({e}). Continuando com Varejo.")
+    build_varejo()
+    print("Concluído.")
 
 
 if __name__ == "__main__":
