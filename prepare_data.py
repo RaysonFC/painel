@@ -19,7 +19,7 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC = BASE_DIR / "Geral.xlsx"
-META_MENSAL = 644633
+META_MENSAL = 520000
 
 BR_TZ = timezone(timedelta(hours=-3))
 
