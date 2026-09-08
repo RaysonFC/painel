@@ -3,54 +3,337 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Delly's | Painéis de Estoque</title>
+  <title>Food Service | Controle de Estoque</title>
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function () {
+      var v = Date.now();
+      document.write('<script src="data.js?v=' + v + '"><\/script>');
+      document.write('<script src="script.js?v=' + v + '"><\/script>');
+    })();
+  </script>
 </head>
 <body>
-  <div class="page">
-    <header class="brand-block">
-      <img
-        class="brand-logo"
-        src="assets/logo.webp"
-        onerror="this.src='assets/logo.png'"
-        alt="Delly's Food Service"
-        width="675"
-        height="563"
-      >
-      <p class="brand-tagline">PAINEL DE FOOD SERVICE E VAREJO</p>
-    </header>
 
-    <main class="panels">
-      <a class="card" href="food/index.html">
-        <div class="card-head">
-          <span class="icon icon-food">🍽️</span>
-          <span class="tag">Food Service</span>
-        </div>
-        <h2>Painel Food Service</h2>
-        <p>Meta, faturamento, status de vendas e entradas/pedidos.</p>
-        <ul>
-          <li>KPIs de meta e venda</li>
-          <li>Ruptura / Crítico / OK / Over</li>
-          <li>Tabela de entradas</li>
-        </ul>
-        <span class="cta">Abrir painel Food →</span>
-      </a>
-
-      <a class="card" href="varejo/index.html">
-        <div class="card-head">
-          <span class="icon icon-varejo">🏪</span>
-          <span class="tag">Varejo</span>
-        </div>
-        <h2>Painel Estoque Varejo</h2>
-        <p>Estoque por status, valor em estoque e pedidos em trânsito.</p>
-        <ul>
-          <li>Valor total de estoque</li>
-          <li>Filtros por marca e status</li>
-          <li>Pedidos em trânsito</li>
-        </ul>
-        <span class="cta">Abrir painel Varejo →</span>
-      </a>
-    </main>
+<header class="topbar">
+  <div class="topbar-head">
+    <div class="brand">
+      <a href="../index.html" class="brand-mark" title="Voltar ao início" style="text-decoration:none;">↩</a>
+      <div class="brand-text">
+        <h1>FOOD SERVICE <span class="accent">| ESTOQUE</span></h1>
+        <span class="data-updated" id="data-updated">Atualizado em: –</span>
+      </div>
+    </div>
   </div>
+  <div class="kpi-row">
+    <div class="kpi kpi-meta">
+      <span class="kpi-icon">💰</span>
+      <div class="kpi-text">
+        <span class="kpi-label">META MENSAL</span>
+        <span class="kpi-value" id="kpi-meta-mensal">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-venda">
+      <span class="kpi-icon">📊</span>
+      <div class="kpi-text">
+        <span class="kpi-label">VENDA ATUAL</span>
+        <span class="kpi-value" id="kpi-venda-atual">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-falta">
+      <span class="kpi-icon">📈</span>
+      <div class="kpi-text">
+        <span class="kpi-label">FALTA P/ META</span>
+        <span class="kpi-value" id="kpi-falta-meta">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-estoque">
+      <span class="kpi-icon">📦</span>
+      <div class="kpi-text">
+        <span class="kpi-label">ESTOQUE UN</span>
+        <span class="kpi-value" id="kpi-estoque-un">–</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-bar-inner">
+    <label class="filter-label">Filtrar por Marca:</label>
+    <div class="ms-dropdown" id="marca-dropdown">
+      <button type="button" class="ms-toggle" id="marca-toggle" aria-haspopup="listbox" aria-expanded="false">
+        <span id="marca-toggle-text">Todas as marcas</span>
+        <span class="ms-arrow">▾</span>
+      </button>
+      <div class="ms-panel" id="marca-panel" hidden>
+        <div class="ms-search-wrap">
+          <input type="search" id="marca-search" placeholder="Buscar marca..." autocomplete="off">
+        </div>
+        <div class="ms-actions">
+          <button type="button" id="marca-select-all">Selecionar todas</button>
+          <button type="button" id="marca-clear">Limpar</button>
+        </div>
+        <ul class="ms-list" id="marca-list" role="listbox" aria-multiselectable="true"></ul>
+      </div>
+    </div>
+    <span class="filter-hint" id="marca-hint"></span>
+    <button type="button" id="clear-dept-filter" class="clear-dept-btn" hidden>✕ Limpar departamento</button>
+  </div>
+</div>
+
+<!-- Abas mobile (pills) -->
+<nav class="mobile-tabs" id="mobile-tabs" aria-label="Seções do painel">
+  <button type="button" class="mobile-tab active" data-tab="faturamento">📊 Faturamento</button>
+  <button type="button" class="mobile-tab" data-tab="estoque">📦 Estoque</button>
+</nav>
+
+<main class="grid">
+
+  <section class="panel panel-donut" data-mobile-tab="faturamento">
+    <h2>VENDAS ATUAL UN</h2>
+    <div class="donut-wrap donut-lg">
+      <svg id="donut" viewBox="0 0 480 480"></svg>
+      <div class="donut-center">
+        <span id="donut-total">0</span>
+        <small>Faturamento Total</small>
+      </div>
+    </div>
+    <ul class="legend" id="donut-legend"></ul>
+    <button type="button" id="clear-vendas-filter" class="clear-dept-btn clear-vendas-btn" hidden>✕ Limpar filtro de vendas</button>
+  </section>
+
+  <section class="panel panel-bars" data-mobile-tab="faturamento">
+    <h2>FATURAMENTO × VENDAS UN POR DEPARTAMENTO</h2>
+    <div class="cluster-legend">
+      <span><i class="leg-fat"></i> Faturamento (R$)</span>
+      <span><i class="leg-vend"></i> Vendas UN</span>
+    </div>
+    <div class="cluster-bars" id="dept-bars"></div>
+  </section>
+
+  <section class="panel panel-gauge" data-mobile-tab="both">
+    <h2 id="saude-title">SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+
+    <!-- Modo Faturamento / desktop: meta mensal -->
+    <div class="gauge-mode gauge-mode-meta" id="gauge-mode-meta">
+      <div class="meta-gauge-wrap">
+        <svg id="meta-gauge" viewBox="0 0 200 115"></svg>
+        <div class="meta-gauge-center">
+          <span id="meta-gauge-pct">0%</span>
+          <small>da Meta Mensal atingida</small>
+        </div>
+      </div>
+      <div class="meta-gauge-legend">
+        <span>Meta: <strong id="meta-gauge-meta">R$ 0</strong></span>
+        <span>Atual: <strong id="meta-gauge-atual">R$ 0</strong></span>
+      </div>
+    </div>
+
+    <!-- Modo Estoque (mobile): medidor por status -->
+    <div class="gauge-mode gauge-mode-status" id="gauge-mode-status" hidden>
+      <div class="status-meter-wrap">
+        <div class="status-meter" id="status-meter" role="img" aria-label="Distribuição por status de estoque"></div>
+        <div class="status-meter-total" id="status-meter-total">0 itens</div>
+      </div>
+      <ul class="status-meter-legend" id="status-meter-legend"></ul>
+    </div>
+
+    <p class="click-hint">Clique em um departamento para filtrar o dashboard</p>
+    <div class="table-scroll dept-scroll">
+      <table class="status-table dept-health-table" id="dept-health-table">
+        <thead>
+          <tr>
+            <th>Depto</th>
+            <th class="num col-fat">Fat.</th>
+            <th class="num col-hide-tablet">Média UN</th>
+            <th class="num col-hide-tablet">Vendas UN</th>
+            <th class="num col-hide-tablet">Giro Dia</th>
+            <th>Situação</th>
+            <th class="num col-pct">% Meta</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <!-- Lista curta só no mobile -->
+    <ul class="dept-health-mobile" id="dept-health-mobile" hidden></ul>
+  </section>
+
+  <section class="panel panel-table" data-mobile-tab="faturamento">
+    <div class="table-toolbar">
+      <h2>PRODUTOS — ACOMPANHAMENTO DE VENDAS</h2>
+      <div class="toolbar-controls">
+        <button type="button" class="btn-export" id="btn-export">⬇ Exportar</button>
+        <input type="search" id="search-box" placeholder="Buscar COD, produto, marca ou depto...">
+        <div class="top-filters" id="top-filters">
+          <span class="top-label">Top faturamento:</span>
+          <button type="button" class="chip-top active" data-top="0">Todos</button>
+          <button type="button" class="chip-top" data-top="20">Top 20</button>
+          <button type="button" class="chip-top" data-top="50">Top 50</button>
+          <button type="button" class="chip-top" data-top="100">Top 100</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-rules vendas-rules">
+      <span class="rule-item"><strong>📈 Crescimento</strong> — Vendas atual &gt; média 3 meses (+5%)</span>
+      <span class="rule-item"><strong>➡️ Estável</strong> — Variação entre −5% e +5%</span>
+      <span class="rule-item"><strong>📉 Queda</strong> — Vendas atual &lt; média 3 meses (−5%)</span>
+    </div>
+
+    <div class="table-scroll product-scroll">
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th data-key="cod" class="col-cod">COD</th>
+            <th data-key="descricao">Produto</th>
+            <th data-key="departamento" class="col-hide-mobile">Depto</th>
+            <th data-key="marca" class="col-hide-mobile">Marca</th>
+            <th data-key="vendas_un" class="num">Vend. Atual</th>
+            <th data-key="vendas_m1_un" class="num col-hide-tablet">M-1</th>
+            <th data-key="vendas_m2_un" class="num col-hide-tablet">M-2</th>
+            <th data-key="vendas_m3_un" class="num col-hide-tablet">M-3</th>
+            <th data-key="media_mensal_un" class="num col-hide-tablet">Média</th>
+            <th data-key="faturamento" class="num col-hide-mobile">Fat. (R$)</th>
+            <th data-key="status_vendas">Status</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <section class="panel panel-table panel-entrada" data-mobile-tab="estoque">
+    <div class="table-toolbar">
+      <h2>ENTRADAS / PEDIDOS</h2>
+      <div class="toolbar-controls">
+        <button type="button" class="btn-export" id="btn-export-entrada">⬇ Exportar estoque</button>
+        <input type="search" id="search-entrada" placeholder="Buscar COD, produto, marca, depto ou nº pedido...">
+        <div class="status-filters" id="entrada-status-filters">
+          <button class="chip chip-all active" data-status="Todos">Todos <span class="chip-count" id="count-Todos"></span></button>
+          <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura <span class="chip-count" id="count-Ruptura"></span></button>
+          <button class="chip chip-critico" data-status="Critico">🔴 Crítico <span class="chip-count" id="count-Critico"></span></button>
+          <button class="chip chip-ok" data-status="OK">🟢 OK <span class="chip-count" id="count-OK"></span></button>
+          <button class="chip chip-over" data-status="Over">🔵 Over <span class="chip-count" id="count-Over"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-rules">
+      <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0</span>
+      <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
+      <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
+      <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
+      <span class="rule-item rule-hint">Clique no status para filtrar o site inteiro · itens sem pedido aparecem com Nº Pedido = 0</span>
+      <span class="rule-item rule-hint">Previsão de Entrada = 0 quando a Data Última Entrada for ≥ à previsão</span>
+    </div>
+
+    <div class="table-scroll product-scroll entrada-scroll">
+      <table class="product-table entrada-table">
+        <thead>
+          <tr>
+            <th data-ekey="cod" class="col-cod">COD</th>
+            <th data-ekey="descricao">Descrição</th>
+            <th data-ekey="estoque_un" class="num">Estoque</th>
+            <th data-ekey="dias_estoque_un" class="num col-hide-tablet">Dias Est.</th>
+            <th data-ekey="departamento" class="col-hide-tablet">Departamento</th>
+            <th data-ekey="marca" class="col-hide-tablet">Marca</th>
+            <th data-ekey="data_ultima_entrada" class="col-hide-tablet">Últ. Entrada</th>
+            <th data-ekey="numero_pedido">Nº Pedido</th>
+            <th data-ekey="previsao_entrada">Previsão</th>
+            <th data-ekey="qtd_pedida" class="num col-hide-mobile">Qtd. Pedida</th>
+            <th data-ekey="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="entrada-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="entrada-pagination"></div>
+  </section>
+
+</main>
+
+<!-- Modal exportar produtos -->
+<div class="modal-overlay" id="export-modal" hidden>
+  <div class="modal" role="dialog" aria-labelledby="export-title">
+    <div class="modal-header">
+      <h3 id="export-title">Exportar produtos</h3>
+      <button type="button" class="modal-close" id="export-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Sempre ordenado por faturamento (maior → menor). Usa os filtros de marca/departamento ativos no site.</p>
+
+      <label class="modal-label">Quantidade (Top)</label>
+      <div class="modal-options" id="export-top">
+        <label><input type="radio" name="export-top" value="20" checked> Top 20</label>
+        <label><input type="radio" name="export-top" value="50"> Top 50</label>
+        <label><input type="radio" name="export-top" value="100"> Top 100</label>
+        <label><input type="radio" name="export-top" value="0"> Todos</label>
+      </div>
+
+      <label class="modal-label">Status <small style="font-weight:500;color:var(--text-muted)">(pode marcar vários)</small></label>
+      <div class="modal-options modal-options-multi" id="export-status">
+        <label><input type="checkbox" name="export-status" value="Todos" checked class="export-status-all"> Todos</label>
+        <label><input type="checkbox" name="export-status" value="Ruptura" class="export-status-item"> ⚠️ Ruptura</label>
+        <label><input type="checkbox" name="export-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
+        <label><input type="checkbox" name="export-status" value="OK" class="export-status-item"> 🟢 OK</label>
+        <label><input type="checkbox" name="export-status" value="Over" class="export-status-item"> 🔵 Over</label>
+      </div>
+
+      <label class="modal-label">Formato</label>
+      <div class="modal-options" id="export-format">
+        <label><input type="radio" name="export-format" value="csv" checked> CSV (Excel)</label>
+        <label><input type="radio" name="export-format" value="xlsx"> Excel (.xls)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="export-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="export-confirm">Baixar arquivo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal exportar ENTRADAS / ESTOQUE -->
+<div class="modal-overlay" id="export-entrada-modal" hidden>
+  <div class="modal" role="dialog" aria-labelledby="export-entrada-title">
+    <div class="modal-header">
+      <h3 id="export-entrada-title">Exportar estoque / entradas</h3>
+      <button type="button" class="modal-close" id="export-entrada-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Usa os filtros de marca/departamento/busca ativos. Previsão = 0 quando a última entrada for ≥ à previsão.</p>
+
+      <label class="modal-label">Status de estoque <small style="font-weight:500;color:var(--text-muted)">(pode marcar vários)</small></label>
+      <div class="modal-options modal-options-multi" id="export-entrada-status">
+        <label><input type="checkbox" name="export-entrada-status" value="Todos" checked class="export-status-all"> Todos</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Ruptura" class="export-status-item"> ⚠️ Ruptura</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
+        <label><input type="checkbox" name="export-entrada-status" value="OK" class="export-status-item"> 🟢 OK</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Over" class="export-status-item"> 🔵 Over</label>
+      </div>
+
+      <label class="modal-label">Pedido</label>
+      <div class="modal-options" id="export-entrada-pedido">
+        <label><input type="radio" name="export-entrada-pedido" value="todos" checked> Todos (com e sem pedido)</label>
+        <label><input type="radio" name="export-entrada-pedido" value="com"> Somente com nº pedido</label>
+        <label><input type="radio" name="export-entrada-pedido" value="sem"> Somente sem pedido (0)</label>
+      </div>
+
+      <label class="modal-label">Formato</label>
+      <div class="modal-options" id="export-entrada-format">
+        <label><input type="radio" name="export-entrada-format" value="csv" checked> CSV (Excel)</label>
+        <label><input type="radio" name="export-entrada-format" value="xlsx"> Excel (.xls)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="export-entrada-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="export-entrada-confirm">Baixar arquivo</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
