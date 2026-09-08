@@ -2,7 +2,7 @@
   COMO ATUALIZAR AS BASES (GitHub - automático)
 ================================================
 
-Você NÃO precisa rodar Python no PC
+Você NÃO precisa rodar Python no PC.
 
 O site agora tem uma página inicial (índice.html) com dois painéis:
   /food/    -> Food Service (aba COMPARAT_FOOD)
