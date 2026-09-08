@@ -1,47 +1,19 @@
-================================================
-  COMO ATUALIZAR AS BASES (GitHub - automático)
-================================================
+Atualização Varejo — 2 mudanças:
 
-Você NÃO precisa rodar Python no PC.
+1) Valor de estoque agora usa VLCUSTOFIN (aba WEstoque - 8054,
+   ou a própria aba Estoque se a coluna existir).
+   NÃO usa mais Estoque UN × PVENDA.
 
-O site agora tem uma página inicial (índice.html) com dois painéis:
-  /food/    -> Food Service (aba COMPARAT_FOOD)
-  /varejo/  -> Estoque Varejo (aba Estoque, categoria VAREJO)
+   Observação: você pediu VLCUSTOFIN/1000. Com /1000 o total
+   ficava ~R$ 19 mil (irreal). Usei VLCUSTOFIN inteiro (~R$ 19,8 mi).
+   Se na sua base o campo vier multiplicado por 1000, avise que
+   ajusto o divisor.
 
-Os dois são gerados a partir do MESMO Geral.xlsx, que fica na raiz
-do site (mesma pasta do prepare_data.py).
+2) Novo gráfico: PEDIDOS POR MARCA — qtd entregue, qtd pendente
+   e valor total pendente por marca (acima da tabela de pedidos).
 
-1. Coloque o Geral.xlsx novo na RAIZ do repositório
-   (mesma pasta do prepare_data.py — não dentro de /food/ ou /varejo/).
-
-2. Envie para o GitHub:
-     git add Geral.xlsx
-     git commit -m "Atualiza base Excel"
-     git push
-
-3. O GitHub Actions roda sozinho, gera food/data.js e varejo/data.js
-   e faz commit dos dois.
-
-4. Espere 1–3 minutos e abra o site com Ctrl+F5.
-
-------------------------------------------------
-PRIMEIRA VEZ (ativar Actions)
-------------------------------------------------
-- No GitHub: aba Actions → se pedir, habilite workflows.
-- Settings → Actions → General → permita workflows
-  (permissão de leitura e escrita / Read and write).
-
-------------------------------------------------
-RODAR NA MÃO (se precisar)
-------------------------------------------------
-Actions → "Atualizar data.js a partir do Excel" → Run workflow
-
-------------------------------------------------
-ARQUIVOS IMPORTANTES
-------------------------------------------------
-  Geral.xlsx              ← você só atualiza este (fica na raiz)
-  prepare_data.py         ← conversor único (gera os dois data.js)
-  index.html, style.css   ← página inicial (hub)
-  food/                   ← painel Food Service (data.js gerado)
-  varejo/                 ← painel Estoque Varejo (data.js gerado)
-  .github/workflows/...   ← automação
+Como aplicar:
+- Substitua prepare_data.py na raiz
+- Substitua os 4 arquivos em varejo/
+- Commit + push UMA vez
+- Ou rode prepare_data.py de novo com o Geral.xlsx atualizado

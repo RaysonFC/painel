@@ -349,6 +349,7 @@ def _resolve_varejo_columns(df_columns):
         "MEDIA MENSAL UN": ["MEDIA MENSAL UN", "MEDIA MENSALUN", "MEDIA UN"],
         "GIRO DIA UN": ["GIRO DIA UN", "GIRODIA UN", "GIRO DIA"],
         "GIRO SEMANA UN": ["GIRO SEMANA UN", "GIROSEMANA UN", "GIRO SEMANA"],
+        "VLCUSTOFIN": ["VLCUSTOFIN", "VL CUSTO FIN", "VL CUSTOFIN", "VALOR CUSTO FIN"],
     }
     # chave VAREJO_COLS (original) -> nome interno
     logical_to_internal = {
@@ -367,6 +368,7 @@ def _resolve_varejo_columns(df_columns):
         "MEDIA MENSAL UN": "media_mensal_un",
         "GIRO DIA UN": "giro_dia_un",
         "GIRO SEMANA UN": "giro_semana_un",
+        "VLCUSTOFIN": "vlcustofin",
     }
     rename = {}
     missing_required = []
@@ -447,13 +449,61 @@ def build_varejo():
     df["dias_estoque_un"] = df.apply(
         lambda r: (r["estoque_un"] / r["giro_dia_un"]) if r["giro_dia_un"] else 0, axis=1
     )
-    df["valor_estoque"] = df["estoque_un"] * df["pvenda"]
+
+    # Valor de estoque = VLCUSTOFIN (custo financeiro total do estoque)
+    # Fonte: coluna VLCUSTOFIN na aba Estoque (se existir) OU aba "WEstoque - 8054"
+    vl_map = {}
+    if "vlcustofin" in df.columns:
+        for _, row in df.iterrows():
+            cod = clean_cod(row["cod"])
+            try:
+                vl_map[cod] = float(row["vlcustofin"] or 0)
+            except Exception:
+                vl_map[cod] = 0.0
+        print("[VAREJO] VLCUSTOFIN lido da própria aba Estoque.")
+    else:
+        try:
+            wdf = pd.read_excel(SRC, sheet_name="WEstoque - 8054")
+            # localizar colunas CODPROD e VLCUSTOFIN com tolerância
+            col_cod = None
+            col_vl = None
+            for c in wdf.columns:
+                nc = _norm_col(c)
+                if nc in ("CODPROD", "COD PROD", "CODIGO") and col_cod is None:
+                    col_cod = c
+                if nc in ("VLCUSTOFIN", "VL CUSTO FIN", "VL CUSTOFIN") and col_vl is None:
+                    col_vl = c
+            if col_cod is None or col_vl is None:
+                # tenta nomes exatos
+                if "CODPROD" in wdf.columns:
+                    col_cod = "CODPROD"
+                if "VLCUSTOFIN" in wdf.columns:
+                    col_vl = "VLCUSTOFIN"
+            if col_cod and col_vl:
+                for _, row in wdf.iterrows():
+                    try:
+                        cod = clean_cod(row[col_cod])
+                        vl_map[cod] = float(row[col_vl] or 0)
+                    except Exception:
+                        continue
+                print(f"[VAREJO] VLCUSTOFIN lido de WEstoque - 8054 ({len(vl_map)} produtos).")
+            else:
+                print("[VAREJO] Aviso: não achei VLCUSTOFIN em WEstoque - 8054.")
+        except Exception as e:
+            print(f"[VAREJO] Aviso: falha ao ler VLCUSTOFIN ({e}). Valor de estoque = 0.")
+
+    def _valor_estoque_row(cod):
+        return float(vl_map.get(str(cod), vl_map.get(clean_cod(cod), 0.0)) or 0.0)  # VLCUSTOFIN já é o total
+
+    # aplica após clean_cod abaixo — placeholder, recalcula depois do clean_cod
+    df["valor_estoque"] = 0.0
     df["status"] = [
         varejo_classify_status(e, g, d)
         for e, g, d in zip(df["estoque_un"], df["giro_dia_un"], df["dias_estoque_un"])
     ]
     df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
     df["cod"] = df["cod"].apply(clean_cod)
+    df["valor_estoque"] = df["cod"].map(lambda c: float(vl_map.get(str(c), 0.0) or 0.0))  # VLCUSTOFIN (total)
 
     produtos = df[[
         "cod", "descricao", "marca", "departamento",
