@@ -1,0 +1,108 @@
+================================================
+  PAINEL DE ESTOQUE - COMO ATUALIZAR AS BASES
+================================================
+
+O site tem uma página inicial (index.html) com dois painéis:
+  /food/    -> Food Service
+  /varejo/  -> Estoque Varejo
+
+Os dois NÃO leem o Excel direto. O fluxo é:
+
+  Geral.xlsx  -->  prepare_data.py  -->  food/data.js  e varejo/data.js  -->  site
+
+prepare_data.py fica na RAIZ do site (junto do Geral.xlsx) e gera
+os dois arquivos de uma vez só.
+
+------------------------------------------------
+PASSO A PASSO (Windows)
+------------------------------------------------
+1. Coloque o arquivo Geral.xlsx ATUALIZADO na RAIZ do site
+   (junto com index.html, prepare_data.py, etc. — não dentro
+   de /food/ ou /varejo/).
+
+2. Dê dois cliques em:  ATUALIZAR_DADOS.bat
+
+   (Ou abra o Prompt de Comando nessa pasta e rode:
+    python prepare_data.py)
+
+3. Abra o painel desejado (food/index.html ou varejo/index.html
+   ou a página inicial index.html) e aperte Ctrl+F5 para forçar
+   o recarregamento (sem cache).
+
+------------------------------------------------
+PASSO A PASSO (Linux / Mac)
+------------------------------------------------
+1. Coloque o Geral.xlsx atualizado na raiz do site.
+
+2. No terminal, dentro da pasta raiz:
+     python3 prepare_data.py
+   ou:
+     ./atualizar_dados.sh
+
+3. Abra o painel e force o refresh (Ctrl+F5).
+
+------------------------------------------------
+REQUISITOS
+------------------------------------------------
+- Python 3 instalado
+- Bibliotecas:  pip install pandas openpyxl
+
+------------------------------------------------
+REGRAS DA PLANILHA — FOOD SERVICE
+------------------------------------------------
+- Nome do arquivo: Geral.xlsx
+- Aba obrigatória: COMPARAT_FOOD
+- Colunas usadas (nomes exatos):
+    COD, DESCRIÇÃO, MARCA, DEPARTAMENTO,
+    FATURAMENTO_LIQUID, VENDAS ATUAL CX, VENDAS ATUAL UN,
+    VENDAS M-1 UN, VENDAS M-2 UN, VENDAS M-3 UN,
+    MÉDIA MENSAL UN, GIRO DIA UN, GIRO SEMANA UN,
+    ESTOQUE UN, ESTOQUE CX, DIAS ESTOQUE UN, ATINGIMENTO META,
+    DTULENT, N_PEDIDO, QTD_PEDIDA, PREV_ENTREGA
+
+- Meta mensal: edite META_MENSAL no prepare_data.py
+  (valor atual: 644633)
+
+------------------------------------------------
+REGRAS DA PLANILHA — ESTOQUE VAREJO
+------------------------------------------------
+- Aba obrigatória: Estoque
+- Usa apenas as linhas com CATEGORIA = VAREJO
+- Colunas usadas (nomes exatos):
+    CODPROD, DESCRIÇÃO, MARCA, DEPARTAMENTO, CATEGORIA,
+    ESTOQUEGERALUN, ESTOQUEGERCX, VENDMESCX, VENDMESUN,
+    PVENDA, CMV, DTULTENT,
+    MÉDIA MENSAL UN, GIRO DIA UN, GIRO SEMANA UN
+
+- Dias de estoque = ESTOQUEGERALUN ÷ GIRO DIA UN
+- Status: Ruptura (estoque = 0) · Sem Giro (estoque > 0 e giro
+  diário = 0) · Crítico (< 20 dias) · OK (20–60 dias) · Over (> 60 dias)
+- Valor de Estoque = ESTOQUEGERALUN × PVENDA
+
+------------------------------------------------
+PEDIDOS EM TRÂNSITO (painel Varejo)
+------------------------------------------------
+- Aba obrigatória: Pedidos - 8151
+- Colunas usadas:
+    Cód. Produto, Descrição Produto, Marcas, Número Pedido,
+    Qt. Pedida, Qt. Entregue, Saldo Pendent, Valor Pendente,
+    Dt. Última Entrada, Previsão Entrega
+- Só entram linhas com Saldo Pendent > 0
+- Previsão de entrada só é exibida quando for POSTERIOR à
+  data da última entrada (se previsão ≤ última entrada, fica em branco)
+
+
+------------------------------------------------
+ARQUIVOS DO SITE
+------------------------------------------------
+  index.html, style.css      página inicial (hub com os 2 painéis)
+  food/index.html            painel Food Service
+  food/style.css, script.js
+  food/data.js                DADOS Food (gerado)
+  varejo/index.html           painel Estoque Varejo
+  varejo/style.css, script.js
+  varejo/data.js               DADOS Varejo (gerado)
+  prepare_data.py              conversor único Excel -> os dois data.js
+  ATUALIZAR_DADOS.bat           atalho Windows
+  atualizar_dados.sh             atalho Linux/Mac
+  Geral.xlsx                     base Excel, fica na raiz (não precisa ir no ZIP do site)
