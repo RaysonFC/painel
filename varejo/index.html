@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estoque Varejo | Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function () {
+      var v = Date.now();
+      document.write('<script src="data.js?v=' + v + '"><\/script>');
+      document.write('<script src="script.js?v=' + v + '"><\/script>');
+    })();
+  </script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-head">
+    <div class="brand">
+      <a href="../index.html" class="brand-mark" title="Voltar ao início" style="text-decoration:none;">↩</a>
+      <div class="brand-text">
+        <h1>ESTOQUE <span class="accent">VAREJO</span></h1>
+        <span class="data-updated" id="data-updated">Atualizado em: –</span>
+      </div>
+    </div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi kpi-meta">
+      <span class="kpi-icon">📦</span>
+      <div class="kpi-text">
+        <span class="kpi-label">ESTOQUE TOTAL UN</span>
+        <span class="kpi-value" id="kpi-estoque-total">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-venda">
+      <span class="kpi-icon">💰</span>
+      <div class="kpi-text">
+        <span class="kpi-label">VALOR DE ESTOQUE</span>
+        <span class="kpi-value" id="kpi-valor-estoque">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-falta">
+      <span class="kpi-icon">🏷️</span>
+      <div class="kpi-text">
+        <span class="kpi-label">QTD. PRODUTOS</span>
+        <span class="kpi-value" id="kpi-qtd-produtos">–</span>
+      </div>
+    </div>
+    <div class="kpi kpi-estoque">
+      <span class="kpi-icon">⚠️</span>
+      <div class="kpi-text">
+        <span class="kpi-label">ITENS EM RUPTURA</span>
+        <span class="kpi-value" id="kpi-ruptura">–</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-bar-inner">
+    <label class="filter-label">Filtrar por Marca:</label>
+    <div class="ms-dropdown" id="marca-dropdown">
+      <button type="button" class="ms-toggle" id="marca-toggle" aria-haspopup="listbox" aria-expanded="false">
+        <span id="marca-toggle-text">Todas as marcas</span>
+        <span class="ms-arrow">▾</span>
+      </button>
+      <div class="ms-panel" id="marca-panel" hidden>
+        <div class="ms-search-wrap">
+          <input type="search" id="marca-search" placeholder="Buscar marca..." autocomplete="off">
+        </div>
+        <div class="ms-actions">
+          <button type="button" id="marca-select-all">Selecionar todas</button>
+          <button type="button" id="marca-clear">Limpar</button>
+        </div>
+        <ul class="ms-list" id="marca-list" role="listbox" aria-multiselectable="true"></ul>
+      </div>
+    </div>
+    <span class="filter-hint" id="marca-hint"></span>
+    <button type="button" id="clear-dept-filter" class="clear-dept-btn" hidden>✕ Limpar departamento</button>
+  </div>
+</div>
+
+<main class="grid">
+
+  <section class="panel panel-donut">
+    <h2>ESTOQUE POR STATUS</h2>
+    <div class="donut-wrap donut-lg">
+      <svg id="donut" viewBox="0 0 480 480"></svg>
+      <div class="donut-center">
+        <span id="donut-total">0</span>
+        <small>Valor de Estoque</small>
+      </div>
+    </div>
+    <ul class="legend" id="donut-legend"></ul>
+  </section>
+
+  <section class="panel panel-bars">
+    <h2>VALOR DE ESTOQUE × VENDAS UN POR DEPARTAMENTO</h2>
+    <div class="cluster-legend">
+      <span><i class="leg-fat"></i> Valor de Estoque (R$)</span>
+      <span><i class="leg-vend"></i> Vendas UN (mês)</span>
+    </div>
+    <div class="cluster-bars" id="dept-bars"></div>
+  </section>
+
+  <section class="panel panel-gauge">
+    <h2>SAÚDE DO ESTOQUE POR DEPARTAMENTO</h2>
+    <p class="click-hint">Clique em um departamento para filtrar o dashboard</p>
+    <div class="table-scroll dept-scroll">
+      <table class="status-table dept-health-table" id="dept-health-table">
+        <thead>
+          <tr>
+            <th>Depto</th>
+            <th class="num col-fat">Valor Estoque</th>
+            <th class="num col-hide-tablet">Estoque UN</th>
+            <th class="num col-hide-tablet">Vendas UN</th>
+            <th class="num col-hide-tablet">Giro Dia</th>
+            <th>Status</th>
+            <th class="num col-pct">Dias Est.</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel panel-table">
+    <div class="table-toolbar">
+      <h2>PRODUTOS — ESTOQUE</h2>
+      <div class="toolbar-controls">
+        <button type="button" class="btn-export" id="btn-export">⬇ Exportar</button>
+        <input type="search" id="search-box" placeholder="Buscar COD, produto, marca ou depto...">
+        <div class="top-filters" id="top-filters">
+          <span class="top-label">Top valor estoque:</span>
+          <button type="button" class="chip-top active" data-top="0">Todos</button>
+          <button type="button" class="chip-top" data-top="20">Top 20</button>
+          <button type="button" class="chip-top" data-top="50">Top 50</button>
+          <button type="button" class="chip-top" data-top="100">Top 100</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-rules">
+      <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0</span>
+      <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
+      <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
+      <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
+      <span class="rule-item"><strong>⚪ Sem Giro</strong> — Tem estoque, mas giro diário = 0 (sem venda no mês)</span>
+      <span class="rule-item rule-hint">Dias de estoque = Estoque UN ÷ Giro Dia UN · Clique no status para filtrar o site inteiro</span>
+    </div>
+
+    <div class="status-filters" id="status-filters">
+      <button class="chip chip-all active" data-status="Todos">Todos <span class="chip-count" id="count-Todos"></span></button>
+      <button class="chip chip-ruptura" data-status="Ruptura">⚠️ Ruptura <span class="chip-count" id="count-Ruptura"></span></button>
+      <button class="chip chip-critico" data-status="Critico">🔴 Crítico <span class="chip-count" id="count-Critico"></span></button>
+      <button class="chip chip-ok" data-status="OK">🟢 OK <span class="chip-count" id="count-OK"></span></button>
+      <button class="chip chip-over" data-status="Over">🔵 Over <span class="chip-count" id="count-Over"></span></button>
+      <button class="chip chip-semgiro" data-status="SemGiro">⚪ Sem Giro <span class="chip-count" id="count-SemGiro"></span></button>
+    </div>
+
+    <div class="table-scroll product-scroll">
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th data-key="cod" class="col-cod">COD</th>
+            <th data-key="descricao">Produto</th>
+            <th data-key="departamento" class="col-hide-mobile">Depto</th>
+            <th data-key="marca" class="col-hide-mobile">Marca</th>
+            <th data-key="estoque_un" class="num">Estoque UN</th>
+            <th data-key="estoque_cx" class="num col-hide-tablet">Estoque CX</th>
+            <th data-key="vendas_un" class="num col-hide-tablet">Vendas UN</th>
+            <th data-key="giro_dia_un" class="num col-hide-tablet">Giro Dia</th>
+            <th data-key="dias_estoque_un" class="num">Dias Est.</th>
+            <th data-key="valor_estoque" class="num col-hide-mobile">Valor Estoque</th>
+            <th data-key="data_ultima_entrada" class="col-hide-tablet">Últ. Entrada</th>
+            <th data-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <section class="panel panel-pedidos">
+    <div class="table-toolbar">
+      <h2>PEDIDOS EM TRÂNSITO</h2>
+      <div class="toolbar-controls">
+        <input type="search" id="search-pedidos" placeholder="Buscar COD, produto, marca ou pedido...">
+        <span class="pedidos-kpi" id="pedidos-kpi">–</span>
+      </div>
+    </div>
+    <p class="click-hint">Origem: aba Pedidos - 8151 · Somente saldo pendente &gt; 0 · Previsão de entrada aparece só quando for posterior à última entrada</p>
+    <div class="table-scroll pedidos-scroll">
+      <table class="product-table pedidos-table" id="pedidos-table">
+        <thead>
+          <tr>
+            <th data-pkey="cod" class="col-cod">COD</th>
+            <th data-pkey="descricao">Produto</th>
+            <th data-pkey="marca" class="col-hide-mobile">Marca</th>
+            <th data-pkey="numero_pedido" class="col-hide-tablet">Nº Pedido</th>
+            <th data-pkey="qtd_pedida" class="num">Qtd Pedida</th>
+            <th data-pkey="qtd_entregue" class="num col-hide-tablet">Qtd Entregue</th>
+            <th data-pkey="saldo_pendente" class="num">Saldo Pendente</th>
+            <th data-pkey="valor_pendente" class="num">Valor Pendente</th>
+            <th data-pkey="data_ultima_entrada" class="col-hide-tablet">Últ. Entrada</th>
+            <th data-pkey="previsao_entrada">Previsão Entrada</th>
+          </tr>
+        </thead>
+        <tbody id="pedidos-tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pedidos-pagination"></div>
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="export-modal" hidden>
+  <div class="modal" role="dialog" aria-labelledby="export-title">
+    <div class="modal-header">
+      <h3 id="export-title">Exportar produtos</h3>
+      <button type="button" class="modal-close" id="export-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Sempre ordenado por valor de estoque (maior → menor). Usa os filtros de marca/departamento ativos no site.</p>
+      <label class="modal-label">Quantidade (Top)</label>
+      <div class="modal-options" id="export-top">
+        <label><input type="radio" name="export-top" value="20" checked> Top 20</label>
+        <label><input type="radio" name="export-top" value="50"> Top 50</label>
+        <label><input type="radio" name="export-top" value="100"> Top 100</label>
+        <label><input type="radio" name="export-top" value="0"> Todos</label>
+      </div>
+      <label class="modal-label">Status <small style="font-weight:500;color:var(--text-muted)">(pode marcar vários)</small></label>
+      <div class="modal-options modal-options-multi" id="export-status">
+        <label><input type="checkbox" name="export-status" value="Todos" checked class="export-status-all"> Todos</label>
+        <label><input type="checkbox" name="export-status" value="Ruptura" class="export-status-item"> ⚠️ Ruptura</label>
+        <label><input type="checkbox" name="export-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
+        <label><input type="checkbox" name="export-status" value="OK" class="export-status-item"> 🟢 OK</label>
+        <label><input type="checkbox" name="export-status" value="Over" class="export-status-item"> 🔵 Over</label>
+        <label><input type="checkbox" name="export-status" value="SemGiro" class="export-status-item"> ⚪ Sem Giro</label>
+      </div>
+      <label class="modal-label">Formato</label>
+      <div class="modal-options" id="export-format">
+        <label><input type="radio" name="export-format" value="csv" checked> CSV (Excel)</label>
+        <label><input type="radio" name="export-format" value="xlsx"> Excel (.xls)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="export-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="export-confirm">Baixar arquivo</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
