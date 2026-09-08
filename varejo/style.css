@@ -933,3 +933,32 @@ body {
   .cluster-row { grid-template-columns: 60px 1fr; }
   .cluster-label { font-size: 10px; }
 }
+
+/* Pedidos por marca */
+.leg-ent { background: #7cb342; }
+.leg-pend { background: #f0973d; }
+.leg-valor-txt { color: var(--text-muted); font-weight: 600; }
+.panel-marca-pedidos { grid-column: 1 / -1; }
+.marca-valor-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--navy-deep);
+  background: var(--blue-pale);
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  min-width: 90px;
+  text-align: right;
+}
+.cluster-row-marca {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+@media (max-width: 768px) {
+  .cluster-row-marca { grid-template-columns: 80px 1fr; }
+  .cluster-row-marca .marca-valor-tag { grid-column: 1 / -1; text-align: left; }
+}

@@ -784,6 +784,61 @@ function getFilteredPedidos() {
   return rows;
 }
 
+
+/* ---------- Pedidos por marca (gráfico) ---------- */
+function computeMarcaPedidos() {
+  let rows = data.pedidos || [];
+  if (state.selectedMarcas.size > 0) {
+    rows = rows.filter((p) => state.selectedMarcas.has((p.marca || "").trim()));
+  }
+  const map = {};
+  rows.forEach((p) => {
+    const m = (p.marca || "").trim() || "SEM MARCA";
+    if (!map[m]) map[m] = { marca: m, qtd_entregue: 0, saldo_pendente: 0, valor_pendente: 0 };
+    map[m].qtd_entregue += Number(p.qtd_entregue) || 0;
+    map[m].saldo_pendente += Number(p.saldo_pendente) || 0;
+    map[m].valor_pendente += Number(p.valor_pendente) || 0;
+  });
+  return Object.values(map).sort((a, b) => b.valor_pendente - a.valor_pendente);
+}
+
+function renderMarcaPedidosBars() {
+  const el = document.getElementById("marca-pedidos-bars");
+  if (!el) return;
+  const rows = computeMarcaPedidos();
+  if (!rows.length) {
+    el.innerHTML = '<p class="empty-bars">Nenhum pedido pendente no filtro atual</p>';
+    return;
+  }
+  const maxEnt = Math.max(...rows.map((r) => r.qtd_entregue), 1);
+  const maxPend = Math.max(...rows.map((r) => r.saldo_pendente), 1);
+
+  el.innerHTML = rows
+    .map((r) => {
+      const pctEnt = logScale(r.qtd_entregue, maxEnt);
+      const pctPend = logScale(r.saldo_pendente, maxPend);
+      const marca = (r.marca || "").replace(/</g, "&lt;");
+      return (
+        '<div class="cluster-row cluster-row-marca">' +
+        '<span class="cluster-label" title="' + marca + '">' + marca + "</span>" +
+        '<div class="cluster-tracks">' +
+          '<div class="cluster-track-outer">' +
+            '<div class="cluster-track"><div class="cluster-fill" style="width:' + pctEnt + '%;background:#7cb342"></div></div>' +
+            '<span class="cluster-val-ext">' + fmtInt(r.qtd_entregue) + " ent</span>" +
+          "</div>" +
+          '<div class="cluster-track-outer">' +
+            '<div class="cluster-track"><div class="cluster-fill" style="width:' + pctPend + '%;background:#f0973d"></div></div>' +
+            '<span class="cluster-val-ext">' + fmtInt(r.saldo_pendente) + " pend</span>" +
+          "</div>" +
+        "</div>" +
+        '<span class="marca-valor-tag">' + fmtMoney(r.valor_pendente) + "</span>" +
+        "</div>"
+      );
+    })
+    .join("");
+}
+
+
 function renderPedidos() {
   const tbody = document.getElementById("pedidos-tbody");
   if (!tbody) return;
@@ -879,6 +934,7 @@ function refreshAll() {
   renderDeptHealth(deptHealth);
   renderTable(products);
   updateStatusCounts();
+  renderMarcaPedidosBars();
   renderPedidos();
 }
 
