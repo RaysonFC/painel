@@ -19,7 +19,7 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC = BASE_DIR / "Geral.xlsx"
-META_MENSAL = 520000
+META_MENSAL = 644633
 
 BR_TZ = timezone(timedelta(hours=-3))
 
@@ -310,125 +310,18 @@ def varejo_classify_status(estoque_un, giro_dia_un, dias):
     return "Over"
 
 
-def _norm_col(name):
-    """Normaliza nome de coluna para comparação flexível."""
-    s = str(name).strip().upper()
-    # remove acentos comuns
-    for a, b in (
-        ("Á", "A"), ("À", "A"), ("Ã", "A"), ("Â", "A"),
-        ("É", "E"), ("Ê", "E"),
-        ("Í", "I"),
-        ("Ó", "O"), ("Ô", "O"), ("Õ", "O"),
-        ("Ú", "U"),
-        ("Ç", "C"),
-    ):
-        s = s.replace(a, b)
-    s = " ".join(s.split())
-    return s
-
-
-def _resolve_varejo_columns(df_columns):
-    """Mapeia colunas reais da planilha para os nomes internos, tolerando
-    acentos, espaços e colunas opcionais (ex.: CATEGORIA ausente no Excel do GitHub).
-    """
-    available = {_norm_col(c): c for c in df_columns}
-    # aliases: nome lógico normalizado -> possíveis rótulos na planilha
-    wanted = {
-        "CODPROD": ["CODPROD", "COD PROD", "CODIGO", "CODIGO PRODUTO"],
-        "DESCRICAO": ["DESCRICAO", "DESCRICAO PRODUTO", "PRODUTO"],
-        "MARCA": ["MARCA"],
-        "DEPARTAMENTO": ["DEPARTAMENTO", "DEPTO"],
-        "CATEGORIA": ["CATEGORIA", "CATEG", "CAT"],
-        "ESTOQUEGERALUN": ["ESTOQUEGERALUN", "ESTOQUE GERAL UN", "ESTOQUE UN"],
-        "ESTOQUEGERCX": ["ESTOQUEGERCX", "ESTOQUE GERAL CX", "ESTOQUE CX"],
-        "VENDMESCX": ["VENDMESCX", "VEND MES CX", "VENDA MES CX"],
-        "VENDMESUN": ["VENDMESUN", "VEND MES UN", "VENDA MES UN"],
-        "PVENDA": ["PVENDA", "PRECO VENDA", "PRECO"],
-        "CMV": ["CMV"],
-        "DTULTENT": ["DTULTENT", "DT ULT ENT", "DATA ULTIMA ENTRADA", "DTULTENTRADA"],
-        "MEDIA MENSAL UN": ["MEDIA MENSAL UN", "MEDIA MENSALUN", "MEDIA UN"],
-        "GIRO DIA UN": ["GIRO DIA UN", "GIRODIA UN", "GIRO DIA"],
-        "GIRO SEMANA UN": ["GIRO SEMANA UN", "GIROSEMANA UN", "GIRO SEMANA"],
-        "VLCUSTOFIN": ["VLCUSTOFIN", "VL CUSTO FIN", "VL CUSTOFIN", "VALOR CUSTO FIN"],
-    }
-    # chave VAREJO_COLS (original) -> nome interno
-    logical_to_internal = {
-        "CODPROD": "cod",
-        "DESCRICAO": "descricao",
-        "MARCA": "marca",
-        "DEPARTAMENTO": "departamento",
-        "CATEGORIA": "categoria",
-        "ESTOQUEGERALUN": "estoque_un",
-        "ESTOQUEGERCX": "estoque_cx",
-        "VENDMESCX": "vendas_cx",
-        "VENDMESUN": "vendas_un",
-        "PVENDA": "pvenda",
-        "CMV": "cmv",
-        "DTULTENT": "data_ultima_entrada",
-        "MEDIA MENSAL UN": "media_mensal_un",
-        "GIRO DIA UN": "giro_dia_un",
-        "GIRO SEMANA UN": "giro_semana_un",
-        "VLCUSTOFIN": "vlcustofin",
-    }
-    rename = {}
-    missing_required = []
-    required = {"CODPROD", "DESCRICAO", "MARCA", "DEPARTAMENTO", "ESTOQUEGERALUN"}
-    for logical, aliases in wanted.items():
-        found = None
-        for al in aliases:
-            if _norm_col(al) in available:
-                found = available[_norm_col(al)]
-                break
-        # também tenta match direto se a chave original existir com acento
-        if found is None:
-            for real in df_columns:
-                if _norm_col(real) == _norm_col(logical):
-                    found = real
-                    break
-        if found is not None:
-            rename[found] = logical_to_internal[logical]
-        elif logical in required:
-            missing_required.append(logical)
-    return rename, missing_required
-
-
 def build_varejo():
     print(f"[VAREJO] Lendo: {SRC.name}  |  aba: {VAREJO_SHEET}")
     try:
-        df_raw = pd.read_excel(SRC, sheet_name=VAREJO_SHEET)
-    except Exception as e:
+        df = pd.read_excel(SRC, sheet_name=VAREJO_SHEET, usecols=list(VAREJO_COLS.keys()))
+    except ValueError as e:
         print(f"[VAREJO] ERRO ao ler a planilha: {e}")
+        print("Colunas esperadas:", ", ".join(VAREJO_COLS.keys()))
         sys.exit(1)
 
-    rename_map, missing_req = _resolve_varejo_columns(df_raw.columns)
-    if missing_req:
-        print(f"[VAREJO] ERRO: colunas obrigatórias ausentes: {missing_req}")
-        print("Colunas na planilha:", ", ".join(str(c) for c in df_raw.columns))
-        sys.exit(1)
-
-    optional_missing = [k for k in ("categoria", "estoque_cx", "vendas_cx", "vendas_un", "pvenda", "cmv",
-                                      "media_mensal_un", "giro_dia_un", "giro_semana_un", "data_ultima_entrada")
-                        if k not in rename_map.values()]
-    if optional_missing:
-        print(f"[VAREJO] Aviso: colunas opcionais ausentes (seguindo sem elas): {optional_missing}")
-
-    df = df_raw.rename(columns=rename_map)
-    # mantém só colunas mapeadas
-    keep = [c for c in rename_map.values() if c in df.columns]
-    df = df[keep].copy()
-
+    df = df.rename(columns=VAREJO_COLS)
     df = df.dropna(subset=["cod"])
-    if "categoria" in df.columns:
-        before = len(df)
-        df = df[df["categoria"].fillna("").astype(str).str.upper().str.contains(VAREJO_CATEGORIA, na=False)].copy()
-        print(f"[VAREJO] Filtro CATEGORIA={VAREJO_CATEGORIA}: {before} -> {len(df)} linhas")
-    else:
-        print("[VAREJO] Aviso: coluna CATEGORIA não existe nesta planilha — usando todas as linhas da aba Estoque.")
-
-    if "marca" not in df.columns:
-        df["marca"] = ""
-    if "departamento" not in df.columns:
-        df["departamento"] = "OUTROS"
+    df = df[df["categoria"].fillna("").str.upper() == VAREJO_CATEGORIA].copy()
     df["marca"] = df["marca"].fillna("")
     df["departamento"] = df["departamento"].fillna("OUTROS")
 
@@ -436,74 +329,19 @@ def build_varejo():
         "estoque_un", "estoque_cx", "vendas_cx", "vendas_un", "pvenda", "cmv",
         "media_mensal_un", "giro_dia_un", "giro_semana_un",
     ]:
-        if c not in df.columns:
-            df[c] = 0
-        else:
+        if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
-
-    if "data_ultima_entrada" not in df.columns:
-        df["data_ultima_entrada"] = ""
-    if "descricao" not in df.columns:
-        df["descricao"] = ""
 
     df["dias_estoque_un"] = df.apply(
         lambda r: (r["estoque_un"] / r["giro_dia_un"]) if r["giro_dia_un"] else 0, axis=1
     )
-
-    # Valor de estoque = VLCUSTOFIN (custo financeiro total do estoque)
-    # Fonte: coluna VLCUSTOFIN na aba Estoque (se existir) OU aba "WEstoque - 8054"
-    vl_map = {}
-    if "vlcustofin" in df.columns:
-        for _, row in df.iterrows():
-            cod = clean_cod(row["cod"])
-            try:
-                vl_map[cod] = float(row["vlcustofin"] or 0)
-            except Exception:
-                vl_map[cod] = 0.0
-        print("[VAREJO] VLCUSTOFIN lido da própria aba Estoque.")
-    else:
-        try:
-            wdf = pd.read_excel(SRC, sheet_name="WEstoque - 8054")
-            # localizar colunas CODPROD e VLCUSTOFIN com tolerância
-            col_cod = None
-            col_vl = None
-            for c in wdf.columns:
-                nc = _norm_col(c)
-                if nc in ("CODPROD", "COD PROD", "CODIGO") and col_cod is None:
-                    col_cod = c
-                if nc in ("VLCUSTOFIN", "VL CUSTO FIN", "VL CUSTOFIN") and col_vl is None:
-                    col_vl = c
-            if col_cod is None or col_vl is None:
-                # tenta nomes exatos
-                if "CODPROD" in wdf.columns:
-                    col_cod = "CODPROD"
-                if "VLCUSTOFIN" in wdf.columns:
-                    col_vl = "VLCUSTOFIN"
-            if col_cod and col_vl:
-                for _, row in wdf.iterrows():
-                    try:
-                        cod = clean_cod(row[col_cod])
-                        vl_map[cod] = float(row[col_vl] or 0)
-                    except Exception:
-                        continue
-                print(f"[VAREJO] VLCUSTOFIN lido de WEstoque - 8054 ({len(vl_map)} produtos).")
-            else:
-                print("[VAREJO] Aviso: não achei VLCUSTOFIN em WEstoque - 8054.")
-        except Exception as e:
-            print(f"[VAREJO] Aviso: falha ao ler VLCUSTOFIN ({e}). Valor de estoque = 0.")
-
-    def _valor_estoque_row(cod):
-        return float(vl_map.get(str(cod), vl_map.get(clean_cod(cod), 0.0)) or 0.0)  # VLCUSTOFIN já é o total
-
-    # aplica após clean_cod abaixo — placeholder, recalcula depois do clean_cod
-    df["valor_estoque"] = 0.0
+    df["valor_estoque"] = df["estoque_un"] * df["pvenda"]
     df["status"] = [
         varejo_classify_status(e, g, d)
         for e, g, d in zip(df["estoque_un"], df["giro_dia_un"], df["dias_estoque_un"])
     ]
     df["data_ultima_entrada"] = df["data_ultima_entrada"].apply(fmt_date)
     df["cod"] = df["cod"].apply(clean_cod)
-    df["valor_estoque"] = df["cod"].map(lambda c: float(vl_map.get(str(c), 0.0) or 0.0))  # VLCUSTOFIN (total)
 
     produtos = df[[
         "cod", "descricao", "marca", "departamento",
