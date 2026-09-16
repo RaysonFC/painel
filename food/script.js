@@ -12,7 +12,13 @@ const VENDAS_LABELS = {
   Estavel: "➡️ Estável",
 };
 
-const STATUS_LABELS = { Ruptura: "Ruptura", Critico: "Crítico", OK: "OK", Over: "Over" };
+const STATUS_LABELS = {
+  Ruptura: "Ruptura",
+  Critico: "Crítico",
+  OK: "OK",
+  Over: "Over",
+  Inativo: "Inativo",
+};
 
 const SITUACAO_LABELS = {
   "Bateu a Meta": "Bateu a Meta",
@@ -27,7 +33,53 @@ const SITUACAO_CLASS = {
   "Sem Vendas": "sit-sem",
 };
 
+/** Converte dd/mm/yyyy → timestamp (ms) ou null se inválida */
+function parseBRDate(s) {
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+}
+
+/** Data de referência do dashboard (generated_at) ou agora */
+function getRefDateMs() {
+  const raw = (typeof DASHBOARD_DATA !== "undefined" && DASHBOARD_DATA.generated_at) || "";
+  // "15/09/2026 11:20:21" ou só data
+  const m = String(raw).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  return Date.now();
+}
+
+/**
+ * Status de estoque:
+ * - Inativo: sem entrada nos últimos 4 meses (ou data inválida/ausente)
+ * - Ruptura: estoque = 0 (com entrada recente)
+ * - Critico / OK / Over: conforme dias de estoque
+ */
+function resolveEstoqueStatus(p) {
+  const ultimaMs = parseBRDate(p.data_ultima_entrada);
+  const refMs = getRefDateMs();
+  // 4 meses ≈ 122 dias
+  const QUATRO_MESES_MS = 122 * 24 * 60 * 60 * 1000;
+  if (ultimaMs == null || refMs - ultimaMs > QUATRO_MESES_MS) {
+    return "Inativo";
+  }
+  const estoque = Number(p.estoque_un) || 0;
+  if (estoque <= 0) return "Ruptura";
+  const dias = Number(p.dias_estoque_un);
+  if (!Number.isFinite(dias) || dias < 0) return "Ruptura";
+  if (dias < 20) return "Critico";
+  if (dias <= 60) return "OK";
+  return "Over";
+}
+
 const data = DASHBOARD_DATA;
+// Normaliza status de todos os produtos (inclui Inativo)
+if (Array.isArray(data.produtos)) {
+  data.produtos.forEach((p) => {
+    p.status = resolveEstoqueStatus(p);
+  });
+}
 const META_MENSAL = (data.kpis && data.kpis.meta_mensal) || 644633;
 const PAGE_SIZE = 20;
 
@@ -155,18 +207,20 @@ function computeDeptBars(products) {
     .sort((a, b) => b.faturamento - a.faturamento);
 }
 
-const ESTOQUE_STATUS_ORDER = ["Ruptura", "Critico", "OK", "Over"];
+const ESTOQUE_STATUS_ORDER = ["Ruptura", "Critico", "OK", "Over", "Inativo"];
 const ESTOQUE_STATUS_COLORS = {
   Ruptura: "#e04b3f",
   Critico: "#f0973d",
   OK: "#7cb342",
   Over: "#2D6CDF",
+  Inativo: "#6b7690",
 };
 const ESTOQUE_STATUS_LABELS = {
   Ruptura: "⚠️ Ruptura",
   Critico: "🔴 Crítico",
   OK: "🟢 OK",
   Over: "🔵 Over",
+  Inativo: "⚫ Inativo",
 };
 
 function computeDeptHealth(productsForHealth) {
@@ -181,7 +235,7 @@ function computeDeptHealth(productsForHealth) {
         media_mensal_un: 0,
         giro_dia_un: 0,
         estoque_un: 0,
-        statusCounts: { Ruptura: 0, Critico: 0, OK: 0, Over: 0 },
+        statusCounts: { Ruptura: 0, Critico: 0, OK: 0, Over: 0, Inativo: 0 },
       };
     }
     map[d].faturamento += Number(p.faturamento) || 0;
@@ -195,7 +249,7 @@ function computeDeptHealth(productsForHealth) {
   return Object.values(map)
     .map((r) => {
       const pct = r.media_mensal_un ? r.vendas_un / r.media_mensal_un : 0;
-      // status predominante (mais produtos); empate → prioridade Ruptura > Critico > OK > Over
+      // status predominante (mais produtos); empate → prioridade Ruptura > Critico > OK > Over > Inativo
       let best = "OK";
       let bestN = -1;
       ESTOQUE_STATUS_ORDER.forEach((st) => {
@@ -217,7 +271,7 @@ function computeDeptHealth(productsForHealth) {
 
 /** Resumo de status de estoque a partir dos produtos filtrados */
 function computeEstoqueStatusSummary(products) {
-  const counts = { Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  const counts = { Ruptura: 0, Critico: 0, OK: 0, Over: 0, Inativo: 0 };
   products.forEach((p) => {
     const st = p.status || "Ruptura";
     if (counts[st] !== undefined) counts[st]++;
@@ -573,13 +627,14 @@ function renderDeptHealth(deptHealth) {
         if (isEstoque) {
           const sc = r.statusCounts || {};
           valueHtml = fmtInt(r.estoque_un) + " un";
-          // Mini breakdown: ⚠️ n · 🔴 n · 🟢 n · 🔵 n
+          // Mini breakdown: ⚠️ n · 🔴 n · 🟢 n · 🔵 n · ⚫ n
           badgeHtml =
             '<span class="dept-status-break">' +
             '<span class="dsb dsb-rup" title="Ruptura">⚠️ ' + fmtInt(sc.Ruptura || 0) + "</span>" +
             '<span class="dsb dsb-cri" title="Crítico">🔴 ' + fmtInt(sc.Critico || 0) + "</span>" +
             '<span class="dsb dsb-ok" title="OK">🟢 ' + fmtInt(sc.OK || 0) + "</span>" +
             '<span class="dsb dsb-over" title="Over">🔵 ' + fmtInt(sc.Over || 0) + "</span>" +
+            '<span class="dsb dsb-ina" title="Inativo">⚫ ' + fmtInt(sc.Inativo || 0) + "</span>" +
             "</span>";
         } else {
           const sit = r.situacao || "Sem Vendas";
@@ -659,7 +714,6 @@ function renderTable(baseProducts) {
 
   tbody.innerHTML = pageRows
     .map((p) => {
-      const sv = p.status_vendas || "Estavel";
       return (
         '<tr><td class="col-cod">' + (p.cod || "") +
         "</td><td>" + (p.descricao || "") +
@@ -671,8 +725,7 @@ function renderTable(baseProducts) {
         '</td><td class="num col-hide-tablet">' + fmtInt(p.vendas_m3_un) +
         '</td><td class="num col-hide-tablet">' + fmtInt(p.media_mensal_un) +
         '</td><td class="num col-hide-mobile">' + fmtMoney(p.faturamento) +
-        '</td><td><span class="vendas-text vendas-' + sv + '">' +
-        (VENDAS_LABELS[sv] || sv) + "</span></td></tr>"
+        "</td><td>" + (p.data_ultima_entrada || "—") + "</td></tr>"
       );
     })
     .join("");
@@ -941,7 +994,7 @@ function exportCsv(rows) {
   const headers = [
     "COD", "Descrição", "Departamento", "Marca",
     "Vendas Atual UN", "Vendas M-1 UN", "Vendas M-2 UN", "Vendas M-3 UN",
-    "Média Mensal UN", "Faturamento", "Status Vendas",
+    "Média Mensal UN", "Faturamento", "Data Última Entrada",
   ];
   const lines = [headers.join(";")];
   rows.forEach((p) => {
@@ -956,7 +1009,7 @@ function exportCsv(rows) {
       escapeCsv(p.vendas_m3_un),
       escapeCsv(p.media_mensal_un),
       escapeCsv(Number(p.faturamento || 0).toFixed(2)),
-      escapeCsv(VENDAS_LABELS[p.status_vendas] || p.status_vendas),
+      escapeCsv(p.data_ultima_entrada || ""),
     ].join(";"));
   });
   // BOM para Excel abrir UTF-8 corretamente
@@ -970,7 +1023,7 @@ function exportXls(rows) {
   let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
   html += "<tr><th>COD</th><th>Descrição</th><th>Departamento</th><th>Marca</th>" +
     "<th>Estoque UN</th><th>Dias Estoque</th><th>Vendas Atual UN</th>" +
-    "<th>Faturamento</th><th>Status</th></tr>";
+    "<th>Faturamento</th><th>Data Última Entrada</th></tr>";
   rows.forEach((p) => {
     html +=
       "<tr><td>" + (p.cod || "") +
@@ -981,7 +1034,7 @@ function exportXls(rows) {
       "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
       "</td><td>" + (p.vendas_un || 0) +
       "</td><td>" + Number(p.faturamento || 0).toFixed(2) +
-      "</td><td>" + (STATUS_LABELS[p.status] || p.status) +
+      "</td><td>" + (p.data_ultima_entrada || "") +
       "</td></tr>";
   });
   html += "</table></body></html>";
@@ -1033,11 +1086,11 @@ function setupExport() {
 
 function updateStatusCounts() {
   const rows = filterProducts({ status: false, vendasStatus: false });
-  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0 };
+  const counts = { Todos: rows.length, Ruptura: 0, Critico: 0, OK: 0, Over: 0, Inativo: 0 };
   rows.forEach((p) => {
     if (counts[p.status] !== undefined) counts[p.status]++;
   });
-  ["Todos", "Ruptura", "Critico", "OK", "Over"].forEach((st) => {
+  ["Todos", "Ruptura", "Critico", "OK", "Over", "Inativo"].forEach((st) => {
     const el = document.getElementById("count-" + st);
     if (el) el.textContent = "(" + fmtInt(counts[st] || 0) + ")";
   });
@@ -1046,13 +1099,7 @@ function updateStatusCounts() {
 /* ---------- ENTRADAS / PEDIDOS ---------- */
 const ENTRADA_PAGE_SIZE = 20;
 
-/** Converte dd/mm/yyyy → timestamp (ms) ou null se inválida */
-function parseBRDate(s) {
-  if (!s) return null;
-  const m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return null;
-  return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
-}
+
 
 /**
  * Regra de Previsão de Entrada:

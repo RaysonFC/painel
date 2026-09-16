@@ -195,7 +195,7 @@
             <th data-key="vendas_m3_un" class="num col-hide-tablet">M-3</th>
             <th data-key="media_mensal_un" class="num col-hide-tablet">Média</th>
             <th data-key="faturamento" class="num col-hide-mobile">Fat. (R$)</th>
-            <th data-key="status_vendas">Status</th>
+            <th data-key="data_ultima_entrada">Últ. Entrada</th>
           </tr>
         </thead>
         <tbody id="product-tbody"></tbody>
@@ -217,15 +217,17 @@
           <button class="chip chip-critico" data-status="Critico">🔴 Crítico <span class="chip-count" id="count-Critico"></span></button>
           <button class="chip chip-ok" data-status="OK">🟢 OK <span class="chip-count" id="count-OK"></span></button>
           <button class="chip chip-over" data-status="Over">🔵 Over <span class="chip-count" id="count-Over"></span></button>
+          <button class="chip chip-inativo" data-status="Inativo">⚫ Inativo <span class="chip-count" id="count-Inativo"></span></button>
         </div>
       </div>
     </div>
 
     <div class="status-rules">
-      <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0</span>
+      <span class="rule-item"><strong>⚠️ Ruptura</strong> — Estoque UN = 0 (com entrada nos últimos 4 meses)</span>
       <span class="rule-item"><strong>🔴 Crítico</strong> — Dias de estoque &lt; 20</span>
       <span class="rule-item"><strong>🟢 OK</strong> — Dias de estoque entre 20 e 60</span>
       <span class="rule-item"><strong>🔵 Over</strong> — Dias de estoque &gt; 60</span>
+      <span class="rule-item"><strong>⚫ Inativo</strong> — Sem entrada nos últimos 4 meses</span>
       <span class="rule-item rule-hint">Clique no status para filtrar o site inteiro · itens sem pedido aparecem com Nº Pedido = 0</span>
       <span class="rule-item rule-hint">Previsão de Entrada = 0 quando a Data Última Entrada for ≥ à previsão</span>
     </div>
@@ -281,6 +283,7 @@
         <label><input type="checkbox" name="export-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
         <label><input type="checkbox" name="export-status" value="OK" class="export-status-item"> 🟢 OK</label>
         <label><input type="checkbox" name="export-status" value="Over" class="export-status-item"> 🔵 Over</label>
+        <label><input type="checkbox" name="export-status" value="Inativo" class="export-status-item"> ⚫ Inativo</label>
       </div>
 
       <label class="modal-label">Formato</label>
@@ -313,6 +316,7 @@
         <label><input type="checkbox" name="export-entrada-status" value="Critico" class="export-status-item"> 🔴 Crítico</label>
         <label><input type="checkbox" name="export-entrada-status" value="OK" class="export-status-item"> 🟢 OK</label>
         <label><input type="checkbox" name="export-entrada-status" value="Over" class="export-status-item"> 🔵 Over</label>
+        <label><input type="checkbox" name="export-entrada-status" value="Inativo" class="export-status-item"> ⚫ Inativo</label>
       </div>
 
       <label class="modal-label">Pedido</label>

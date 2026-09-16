@@ -566,6 +566,7 @@ body {
 .chip-critico.active { background: var(--orange); border-color: var(--orange); }
 .chip-ok.active { background: var(--green); border-color: var(--green); }
 .chip-over.active { background: var(--blue); border-color: var(--blue); }
+.chip-inativo.active { background: #6b7690; border-color: #6b7690; }
 
 .status-rules {
   display: flex;
@@ -634,6 +635,7 @@ body {
 .status-Critico { background: var(--orange); }
 .status-OK { background: var(--green); }
 .status-Over { background: var(--blue); }
+.status-Inativo { background: #6b7690; }
 
 /* Modal export */
 .modal-overlay {
@@ -1357,6 +1359,7 @@ body {
 .dsb-cri { color: #d68910; }
 .dsb-ok { color: #5a8c2c; }
 .dsb-over { color: #2D6CDF; }
+.dsb-ina { color: #6b7690; }
 
 @media (max-width: 480px) {
   .dept-status-break {
