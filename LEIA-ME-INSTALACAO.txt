@@ -1,0 +1,35 @@
+================================================
+  PAINEL DELLY'S — estrutura correta
+================================================
+
+Este ZIP já vem com a estrutura certa para o GitHub:
+
+  index.html + style.css     → página inicial (HUB)
+  assets/logo.*              → logos
+  food/                      → painel Food Service
+  varejo/                    → painel Estoque Varejo
+  prepare_data.py            → gera food/data.js e varejo/data.js
+  .github/workflows/         → atualização automática pelo Excel
+
+COMO ATUALIZAR NO GITHUB
+------------------------
+1. NÃO apague a pasta .git do seu clone se estiver usando git local.
+
+2. Substitua os arquivos do repositório pelos deste ZIP
+   (sobrescreva index.html e style.css da RAIZ com os do hub).
+
+3. Se na RAIZ do repo ainda existirem data.js e script.js, APAGUE-OS.
+   Eles só devem existir dentro de food/ e varejo/.
+
+4. Commit e push UMA vez só:
+     git add -A
+     git commit -m "Restaura estrutura hub + food + varejo"
+     git push
+
+5. Em Actions, cancele runs paralelos e espere pages-build-deployment
+   ficar VERDE.
+
+6. Abra https://raysonfc.github.io/painel/ com Ctrl+Shift+R
+
+NOTA: Geral.xlsx não está neste ZIP (arquivo grande).
+      Mantenha o Geral.xlsx que já está no repositório.
