@@ -994,7 +994,8 @@ function exportCsv(rows) {
   const headers = [
     "COD", "Descrição", "Departamento", "Marca",
     "Vendas Atual UN", "Vendas M-1 UN", "Vendas M-2 UN", "Vendas M-3 UN",
-    "Média Mensal UN", "Faturamento", "Data Última Saída",
+    "Média Mensal UN", "Faturamento",
+    "Data Última Entrada", "Data Última Saída",
   ];
   const lines = [headers.join(";")];
   rows.forEach((p) => {
@@ -1009,6 +1010,7 @@ function exportCsv(rows) {
       escapeCsv(p.vendas_m3_un),
       escapeCsv(p.media_mensal_un),
       escapeCsv(Number(p.faturamento || 0).toFixed(2)),
+      escapeCsv(p.data_ultima_entrada || ""),
       escapeCsv(p.data_ultima_saida || ""),
     ].join(";"));
   });
@@ -1023,7 +1025,7 @@ function exportXls(rows) {
   let html = '<html><head><meta charset="UTF-8"></head><body><table border="1">';
   html += "<tr><th>COD</th><th>Descrição</th><th>Departamento</th><th>Marca</th>" +
     "<th>Estoque UN</th><th>Dias Estoque</th><th>Vendas Atual UN</th>" +
-    "<th>Faturamento</th><th>Data Última Saída</th></tr>";
+    "<th>Faturamento</th><th>Data Última Entrada</th><th>Data Última Saída</th></tr>";
   rows.forEach((p) => {
     html +=
       "<tr><td>" + (p.cod || "") +
@@ -1034,6 +1036,7 @@ function exportXls(rows) {
       "</td><td>" + Number(p.dias_estoque_un || 0).toFixed(1) +
       "</td><td>" + (p.vendas_un || 0) +
       "</td><td>" + Number(p.faturamento || 0).toFixed(2) +
+      "</td><td>" + (p.data_ultima_entrada || "") +
       "</td><td>" + (p.data_ultima_saida || "") +
       "</td></tr>";
   });
